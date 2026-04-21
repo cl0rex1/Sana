@@ -16,6 +16,8 @@ import {
 } from 'recharts';
 import Card from '../ui/Card';
 
+import { TrendingUp, BarChart2, PieChart as PieChartIcon } from 'lucide-react';
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
@@ -61,8 +63,9 @@ const StatsChart = ({ data, breakdown }) => {
     <div className="space-y-6">
       {/* Area Chart — Incident Trends */}
       <Card>
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          📈 Incident Trends Over Time
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-accent-blue" />
+          Incident Trends Over Time
         </h3>
         <ResponsiveContainer width="100%" height={320}>
           <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -130,8 +133,9 @@ const StatsChart = ({ data, breakdown }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Bar Chart — Monthly Breakdown */}
         <Card>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-            📊 Monthly Breakdown
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-accent-purple" />
+            Monthly Breakdown
           </h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.slice(-12)} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -157,8 +161,9 @@ const StatsChart = ({ data, breakdown }) => {
 
         {/* Pie Chart — Incident Distribution */}
         <Card>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-            🥧 Threat Distribution
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <PieChartIcon className="w-4 h-4 text-accent-cyan" />
+            Threat Distribution
           </h3>
           {breakdown && breakdown.length > 0 ? (
             <div className="flex flex-col items-center">

@@ -33,7 +33,7 @@ const FeedbackModal = ({ choice, onNext, isLastScenario }) => {
         </div>
 
         {/* Feedback explanation */}
-        <p className="text-gray-300 leading-relaxed text-sm md:text-base mb-6">
+        <p className="text-gray-700 leading-relaxed text-sm md:text-base mb-6">
           {choice.feedback}
         </p>
 

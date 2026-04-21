@@ -4,23 +4,50 @@
     "simulation": "Simulation",
     "dashboard": "Dashboard",
     "login": "Login",
-    "profile": "Profile"
+    "profile": "Profile",
+    "language": "Language"
   },
   "home": {
-    "title1": "There is a",
-    "title2": "Better Way",
-    "title3": "to Secure",
-    "subtitle": "Sana is a cybersecurity awareness platform that finds weaknesses in your digital literacy to avoid costly data breaches.",
-    "cta": "Let's Connect"
+    "title1": "There is",
+    "title2": "The best way",
+    "title3": "to protect",
+    "subtitle": "Sana is a cybersecurity awareness platform that finds vulnerabilities in your digital literacy.",
+    "cta": "Get Started"
   },
   "simulation": {
     "title": "Simulation",
     "start": "Start Simulation",
-    "score": "Your Score"
+    "score": "Your Score",
+    "progress": "Progress",
+    "whatToDo": "What do you do?",
+    "results": "Simulation Complete",
+    "tryAgain": "Try Again",
+    "scenarios": "Scenarios",
+    "feedback": "Instant Feedback",
+    "tracking": "Score Tracking",
+    "realThreats": "Real-world threats",
+    "learnChoice": "Learn from each choice",
+    "awarenessLevel": "See your awareness level"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "totalIncidents": "Total Incidents"
+    "title": "Security Dashboard",
+    "subtitle": "Interactive cybersecurity statistics for Kazakhstan (2024–2026)",
+    "totalIncidents": "Total Incidents",
+    "avgPerMonth": "Avg per Month",
+    "topThreat": "Top Threat",
+    "growthRate": "Growth Rate",
+    "filterDate": "Filter by Date",
+    "trends": "Incident Trends Over Time",
+    "breakdown": "Monthly Breakdown",
+    "distribution": "Threat Distribution"
+  },
+  "footer": {
+    "resources": "Resources",
+    "project": "Project",
+    "copyright": "© {{year}} Sana Platform. All rights reserved.",
+    "madeIn": "Made with 🛡️ in Kazakhstan",
+    "sourceCode": "Source Code",
+    "competition": "Built for IT Competition 2026"
   },
   "auth": {
     "loginTitle": "Welcome Back",

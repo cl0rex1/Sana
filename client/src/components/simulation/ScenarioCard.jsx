@@ -7,6 +7,7 @@ import Badge from '../ui/Badge';
  * Shows scenario description and choices.
  */
 const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => {
+  const { t } = useTranslation();
   return (
     <div className="animate-fade-in">
       {/* Scenario header */}
@@ -20,7 +21,7 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
         </div>
         <div className="text-right">
           <span className="text-sm font-mono text-gray-500">
-            Scenario {currentIndex + 1}/{total}
+            {t('simulation.scenarios')} {currentIndex + 1}/{total}
           </span>
         </div>
       </div>
@@ -35,7 +36,7 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
       {/* Choices */}
       <div className="space-y-3">
         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          What do you do?
+          {t('simulation.whatToDo')}
         </p>
         {scenario.choices.map((choice, index) => (
           <button

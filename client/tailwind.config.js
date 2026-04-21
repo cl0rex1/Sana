@@ -31,6 +31,23 @@ export default {
         '4xl': '2rem',
         '5xl': '2.5rem',
       },
+      keyframes: {
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
+        },
+        rainbow: {
+          '0%': { borderColor: '#ef4444' },
+          '20%': { borderColor: '#f59e0b' },
+          '40%': { borderColor: '#10b981' },
+          '60%': { borderColor: '#0ea5e9' },
+          '80%': { borderColor: '#8b5cf6' },
+          '100%': { borderColor: '#ef4444' },
+        },
+      },
+      animation: {
+        'shimmer': 'shimmer 2s infinite linear',
+        'rainbow': 'rainbow 3s linear infinite',
+      },
     },
   },
   plugins: [],

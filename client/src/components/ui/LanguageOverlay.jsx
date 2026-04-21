@@ -8,24 +8,28 @@ const languages = [
   { code: 'kz', name: 'Kazakh', native: 'Қазақша', gradient: 'from-cyan-50 to-blue-100' }
 ];
 
-const LanguageOverlay = ({ isOpen, onClose, triggerRect }) => {
+const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
   const { t, i18n } = useTranslation();
   const [hoveredLang, setHoveredLang] = useState(null);
+  const [origin, setOrigin] = useState({ x: '100%', y: '0%' });
 
   const titles = {
     en: 'Select Language',
     ru: 'Выберите язык',
     kz: 'Тілді таңдаңыз'
   };
-  
-  // Calculate center of trigger if provided, else fallback to top-right
-  const originX = triggerRect ? `${triggerRect.left + triggerRect.width / 2}px` : 'calc(100% - 120px)';
-  const originY = triggerRect ? `${triggerRect.top + triggerRect.height / 2}px` : '40px';
 
   // Mount/unmount effect for smooth entrance/exit
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      if (triggerElement) {
+        const rect = triggerElement.getBoundingClientRect();
+        setOrigin({
+          x: `${rect.left + rect.width / 2}px`,
+          y: `${rect.top + rect.height / 2}px`
+        });
+      }
     } else {
       document.body.style.overflow = '';
     }
@@ -33,11 +37,11 @@ const LanguageOverlay = ({ isOpen, onClose, triggerRect }) => {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, triggerElement]);
 
   // Clip path origin using dynamic button location
-  const expandedStyle = { clipPath: `circle(150% at ${originX} ${originY})` };
-  const closedStyle = { clipPath: `circle(0% at ${originX} ${originY})` };
+  const expandedStyle = { clipPath: `circle(150% at ${origin.x} ${origin.y})` };
+  const closedStyle = { clipPath: `circle(0% at ${origin.x} ${origin.y})` };
 
   return (
     <div className={`fixed inset-0 z-[100] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>

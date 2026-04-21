@@ -68,7 +68,7 @@ const StatCard = ({ icon, label, value, suffix = '', trend, trendLabel, color = 
           {typeof value === 'number' ? value.toLocaleString() : value}
           {suffix && <span className="text-sm text-gray-500 ml-1">{suffix}</span>}
         </p>
-        <p className="text-sm text-gray-400 mt-1">{label}</p>
+        <p className="text-sm text-gray-600 mt-1">{label}</p>
         {trendLabel && <p className="text-xs text-gray-500 mt-0.5">{trendLabel}</p>}
       </div>
     </Card>

@@ -8,8 +8,8 @@ import LanguageOverlay from '../ui/LanguageOverlay';
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
-  const [triggerRect, setTriggerRect] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const triggerRef = React.useRef(null);
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -35,7 +35,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'pt-4 px-4' : 'pt-0 px-0'}`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'pt-8 px-4' : 'pt-0 px-0'}`}>
       <div className={`mx-auto transition-all duration-500 ${
         isScrolled 
           ? 'max-w-[1000px] bg-white/80 backdrop-blur-xl shadow-lg border border-gray-200/50 rounded-full px-6' 
@@ -71,11 +71,9 @@ const Navbar = () => {
           {/* Right Actions (Lang + Profile/CTA) */}
           <div className="hidden md:flex items-center gap-4">
             <button 
+              ref={triggerRef}
               className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 transition-colors text-sm font-medium text-gray-700 outline-none"
-              onClick={(e) => {
-                setTriggerRect(e.currentTarget.getBoundingClientRect());
-                setIsLangOpen(true);
-              }}
+              onClick={() => setIsLangOpen(true)}
             >
               <Globe className="w-4 h-4" />
               {i18n.language.toUpperCase()}
@@ -145,7 +143,7 @@ const Navbar = () => {
       <LanguageOverlay 
         isOpen={isLangOpen} 
         onClose={() => setIsLangOpen(false)} 
-        triggerRect={triggerRect}
+        triggerElement={triggerRef.current}
       />
     </nav>
   );

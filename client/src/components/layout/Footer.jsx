@@ -1,10 +1,11 @@
-import React from 'react';
 import { Shield, Github, ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Footer component with links and branding.
  */
 const Footer = () => {
+  const { t } = useTranslation();
   return (
     <footer className="border-t border-gray-200 bg-transparent rounded-b-[2.5rem]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -15,16 +16,15 @@ const Footer = () => {
               <Shield className="w-5 h-5 text-[#1a1a1a]" />
               <span className="text-lg font-bold text-[#1a1a1a]">SANA</span>
             </div>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Cybersecurity awareness platform protecting Kazakhstan's digital future
-              through education and interactive simulations.
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {t('home.subtitle')}
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Resources
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              {t('footer.resources')}
             </h4>
             <ul className="space-y-2">
               <li>
@@ -50,19 +50,19 @@ const Footer = () => {
 
           {/* Contact */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Project
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              {t('footer.project')}
             </h4>
             <ul className="space-y-2">
               <li>
                 <a href="https://github.com" target="_blank" rel="noopener noreferrer"
-                  className="text-sm text-gray-500 hover:text-accent-cyan transition-colors flex items-center gap-1">
-                  <Github className="w-3.5 h-3.5" /> Source Code
+                  className="text-sm text-gray-600 hover:text-[#1a1a1a] transition-colors flex items-center gap-1">
+                  <Github className="w-3.5 h-3.5" /> {t('footer.sourceCode')}
                 </a>
               </li>
               <li>
                 <span className="text-sm text-gray-500">
-                  Built for IT Competition 2026
+                  {t('footer.competition')}
                 </span>
               </li>
             </ul>
@@ -72,11 +72,11 @@ const Footer = () => {
         {/* Bottom divider and copyright */}
         <div className="cyber-line mt-8 mb-4" />
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-          <p className="text-xs text-gray-600">
-            © {new Date().getFullYear()} Sana Platform. All rights reserved.
+          <p className="text-xs text-gray-500">
+            {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
-          <p className="text-xs text-gray-600">
-            Made with 🛡️ in Kazakhstan
+          <p className="text-xs text-gray-500">
+            {t('footer.madeIn')}
           </p>
         </div>
       </div>

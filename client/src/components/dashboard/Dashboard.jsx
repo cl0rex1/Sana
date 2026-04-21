@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { BarChart3, TrendingUp, AlertTriangle, Shield, Bug } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { BarChart3, TrendingUp, Target, Flame, Activity } from 'lucide-react';
 import { mockStats, getFilteredStats, calculateSummary } from '../../data/mockStats';
 import StatCard from './StatCard';
 import StatsChart from './StatsChart';
@@ -11,6 +12,7 @@ import DateFilter from './DateFilter';
  * Uses mock data as fallback; designed to work with backend API.
  */
 const Dashboard = () => {
+  const { t } = useTranslation();
   const [fromIndex, setFromIndex] = useState(0);
   const [toIndex, setToIndex] = useState(mockStats.length - 1);
 
@@ -36,12 +38,12 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-100 flex items-center gap-3">
-            <BarChart3 className="w-7 h-7 text-accent-cyan" />
-            Cyber Threat <span className="text-gradient">Dashboard</span>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#1a1a1a] flex items-center gap-3">
+            <BarChart3 className="w-7 h-7 text-[#1a1a1a]" />
+            {t('dashboard.title')}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Interactive cybersecurity statistics for Kazakhstan (2024–2026)
+          <p className="text-sm text-gray-600 mt-1">
+            {t('dashboard.subtitle')}
           </p>
         </div>
         <div className="text-xs font-mono text-gray-600 bg-primary-800/50 px-3 py-2 rounded-lg border border-primary-600/20">
@@ -61,8 +63,8 @@ const Dashboard = () => {
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon="🔥"
-          label="Total Incidents"
+          icon={<Flame className="w-5 h-5" />}
+          label={t('dashboard.totalIncidents')}
           value={summary.totalIncidents}
           color="danger"
           trend={summary.growthRate}
@@ -70,22 +72,22 @@ const Dashboard = () => {
           delay={0}
         />
         <StatCard
-          icon="📊"
-          label="Avg per Month"
+          icon={<BarChart3 className="w-5 h-5" />}
+          label={t('dashboard.avgPerMonth')}
           value={summary.avgPerMonth}
           color="cyan"
           delay={100}
         />
         <StatCard
-          icon="🎯"
-          label="Top Threat"
+          icon={<Target className="w-5 h-5" />}
+          label={t('dashboard.topThreat')}
           value={summary.topThreat}
           color="purple"
           delay={200}
         />
         <StatCard
-          icon="📈"
-          label="Growth Rate"
+          icon={<TrendingUp className="w-5 h-5" />}
+          label={t('dashboard.growthRate')}
           value={`${summary.growthRate > 0 ? '+' : ''}${summary.growthRate}`}
           suffix="%"
           color={summary.growthRate > 0 ? 'warning' : 'success'}

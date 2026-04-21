@@ -129,11 +129,12 @@ const CyberFact = () => {
 
       {/* Fact Display Card */}
       <Card
-        className={`mb-6 min-h-[200px] flex flex-col justify-center transition-all duration-500 ${
-          fact ? 'border-accent-cyan/20' : 'border-primary-600/20'
+        className={`mb-6 min-h-[220px] flex flex-col justify-center transition-all duration-700 relative overflow-hidden ${
+          loading ? 'animate-rainbow border-2' : fact ? 'border-gray-200' : 'border-gray-100'
         }`}
-        glow={!!fact}
+        glow={!!fact && !loading}
       >
+        <div className="absolute inset-0 bg-white/40 pointer-events-none" />
         {!fact && !loading && (
           <div className="text-center py-8">
             <AlertTriangle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
@@ -142,14 +143,32 @@ const CyberFact = () => {
         )}
 
         {loading && (
-          <div className="text-center py-8">
-            <div className="w-10 h-10 mx-auto mb-4 border-2 border-accent-cyan/30 border-t-accent-cyan rounded-full animate-spin" />
-            <p className="text-gray-500 text-sm">Loading fact...</p>
+          <div className="py-6 px-6 w-full relative z-10">
+            <div className="flex items-center gap-2 mb-6 animate-pulse">
+              <div className="h-6 w-20 bg-gray-200 rounded-lg"></div>
+              <div className="h-6 w-24 bg-gray-100 rounded-lg"></div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="h-5 bg-gray-200 rounded-full w-full overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
+              </div>
+              <div className="h-5 bg-gray-200 rounded-full w-11/12 overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
+              </div>
+              <div className="h-5 bg-gray-200 rounded-full w-4/6 overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
+              </div>
+            </div>
+            
+            <div className="h-4 w-40 bg-gray-100 mt-8 rounded-full relative overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
+            </div>
           </div>
         )}
 
         {fact && !loading && (
-          <div className="animate-fade-in">
+          <div className="relative z-10 p-6 animate-slide-up" style={{ animationDuration: '800ms' }}>
             {/* Category and severity badges */}
             <div className="flex items-center gap-2 mb-4">
               <Badge variant="info">{fact.category}</Badge>
