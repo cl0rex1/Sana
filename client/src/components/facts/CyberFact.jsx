@@ -1,14 +1,14 @@
-import React, { useState, useCallback } from 'react';
-import { Zap, RefreshCw, Copy, Check, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Zap, ShieldAlert, AlertTriangle, Fingerprint } from 'lucide-react';
 import api from '../../utils/api';
 import Card from '../ui/Card';
-import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import { motion } from 'framer-motion';
 
 /**
- * Cyber-Fact Generator component.
- * Fetches random cybersecurity facts from the backend API.
- * Falls back to a local set of facts if the API is unavailable.
+ * Cyber-Fact Marquee component.
+ * Displays a continuous scrolling list of facts.
  */
 
 // Fallback facts for when the backend is not running
@@ -49,175 +49,255 @@ const fallbackFacts = [
     severity: 'critical',
     source: 'Telecom Security Task Force KZ',
   },
+  {
+    text: 'Over 80% of data breaches involve stolen or weak credentials, not advanced hacking techniques.',
+    category: 'phishing',
+    severity: 'high',
+    source: 'Global Cyber Report 2024',
+  },
+  {
+    text: 'A cyberattack occurs every 39 seconds globally, affecting mostly unsuspecting individuals.',
+    category: 'fraud',
+    severity: 'medium',
+    source: 'Cyber Defense Institute',
+  },
+  {
+    text: 'Public Wi-Fi networks in cafes account for 22% of localized man-in-the-middle attacks.',
+    category: 'fraud',
+    severity: 'medium',
+    source: 'NetSec Survey',
+  },
+  {
+    text: 'The average financial loss to an individual from a successful social engineering attack is over $3,000.',
+    category: 'identity-theft',
+    severity: 'critical',
+    source: 'Fraud Action Network',
+  },
+  {
+    text: 'Fake banking apps on third-party stores steal credentials from 1 in 15 users who download them.',
+    category: 'phishing',
+    severity: 'high',
+    source: 'Mobile Threat Intelligence',
+  },
+  {
+    text: '45% of employees admit to reusing their corporate passwords for personal online accounts.',
+    category: 'identity-theft',
+    severity: 'medium',
+    source: 'Enterprise Security Pulse',
+  },
+  {
+    text: 'Spear-phishing emails targeting specific individuals have a 70% higher open rate than mass spam.',
+    category: 'phishing',
+    severity: 'critical',
+    source: 'Threat Matrix 2025',
+  },
+  {
+    text: '95% of cybersecurity breaches are caused by human error, according to industry research.',
+    category: 'fraud',
+    severity: 'high',
+    source: 'IBM Security Report',
+  },
+  {
+    text: 'The average time to identify a data breach in 2024 was over 200 days.',
+    category: 'identity-theft',
+    severity: 'medium',
+    source: 'Global Data Pulse',
+  },
+  {
+    text: 'Small businesses are the target of 43% of all cyberattacks globally.',
+    category: 'fraud',
+    severity: 'high',
+    source: 'SME Security Alliance',
+  },
+  {
+    text: 'Cryptojacking attacks, using your device to mine crypto, increased by 65% in 2024.',
+    category: 'fraud',
+    severity: 'medium',
+    source: 'Malware Insight',
+  },
+  {
+    text: 'QR code phishing (Quishing) became a major threat in CIS, leading to 15% of mobile fraud.',
+    category: 'phishing',
+    severity: 'high',
+    source: 'Cyber Intel KZ',
+  },
+  {
+    text: 'The global cost of cybercrime is expected to reach $10.5 trillion annually by 2025.',
+    category: 'fraud',
+    severity: 'critical',
+    source: 'Cybersecurity Ventures',
+  },
+  {
+    text: '70% of social engineering attacks in emerging economies are delivered via SMS (Smishing).',
+    category: 'phishing',
+    severity: 'high',
+    source: 'Mobile Security Forum',
+  },
+  {
+    text: 'Using multi-factor authentication (MFA) blocks 99.9% of automated account takeover attacks.',
+    category: 'identity-theft',
+    severity: 'critical',
+    source: 'Microsoft Security',
+  },
+  {
+    text: 'IoT devices are attacked on average once every 5 minutes in unsecured environments.',
+    category: 'fraud',
+    severity: 'medium',
+    source: 'IoT Watchdog',
+  },
+  {
+    text: 'Password "123456" is still used by millions, accounting for 10% of brute-force successes.',
+    category: 'identity-theft',
+    severity: 'high',
+    source: 'Password Habits Study',
+  },
+  {
+    text: 'Shadow IT—using unsanctioned software at work—is responsible for 30% of data leaks.',
+    category: 'identity-theft',
+    severity: 'medium',
+    source: 'Enterprise Security Pulse',
+  },
+  {
+    text: 'Supply chain attacks grew by 40% in 2024, targeting vendors to reach their customers.',
+    category: 'fraud',
+    severity: 'critical',
+    source: 'Supply Chain Guard',
+  },
+  {
+    text: 'Kazakhstan implemented a new AI-based monitoring system in 2025 to track illicit crypto-fraud.',
+    category: 'fraud',
+    severity: 'medium',
+    source: 'National AI Center KZ',
+  },
+  {
+    text: 'Cyber insurance claims for social engineering rose by 120% in the last 18 months.',
+    category: 'fraud',
+    severity: 'high',
+    source: 'InsureTech Report',
+  }
 ];
 
 const CyberFact = () => {
-  const [fact, setFact] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [usedFallbackIndices, setUsedFallbackIndices] = useState([]);
+  const { t, i18n } = useTranslation();
+  const [facts, setFacts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  /** Fetch a random fact from the API, fallback to local data */
-  const fetchFact = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setCopied(false);
-
-    try {
-      const response = await api.get('/facts/random');
-      setFact(response.data);
-    } catch {
-      // Fallback: pick a random local fact (avoid repeats until all used)
-      let availableIndices = fallbackFacts
-        .map((_, i) => i)
-        .filter((i) => !usedFallbackIndices.includes(i));
-
-      if (availableIndices.length === 0) {
-        availableIndices = fallbackFacts.map((_, i) => i);
-        setUsedFallbackIndices([]);
+  useEffect(() => {
+    let isMounted = true;
+    
+    const initFacts = async () => {
+      setLoading(true);
+      try {
+        // Try to fetch 3 fresh facts from AI simultaneously
+        const aiPromises = Array(3).fill(0).map(() => api.get(`/ai/fact?lang=${i18n.language}`));
+        const responses = await Promise.allSettled(aiPromises);
+        
+        const aiFacts = responses
+          .filter(r => r.status === 'fulfilled' && r.value.data && r.value.data.text && !r.value.data.message)
+          .map(r => ({ ...r.value.data, source: 'AI Cyber Intel' }));
+          
+        if (isMounted) {
+          // Combine AI facts with local fallback facts to make a massive list
+          const combined = [...aiFacts, ...fallbackFacts];
+          // Duplicate the list so the infinite scroll is seamless
+          setFacts([...combined, ...combined, ...combined, ...combined]);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          // Just use fallback facts if AI fails completely
+          const combined = [...fallbackFacts, ...fallbackFacts, ...fallbackFacts, ...fallbackFacts];
+          setFacts(combined);
+          setLoading(false);
+        }
       }
+    };
+    
+    initFacts();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [i18n.language]);
 
-      const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-      setFact(fallbackFacts[randomIndex]);
-      setUsedFallbackIndices((prev) => [...prev, randomIndex]);
-    } finally {
-      setLoading(false);
+  if (loading) {
+    return (
+      <div className="w-full flex justify-center py-10">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const getIcon = (category) => {
+    switch (category?.toLowerCase()) {
+      case 'phishing': return <Zap className="w-5 h-5 text-yellow-500" />;
+      case 'fraud': return <AlertTriangle className="w-5 h-5 text-red-500" />;
+      case 'identity-theft': return <Fingerprint className="w-5 h-5 text-purple-500" />;
+      default: return <ShieldAlert className="w-5 h-5 text-blue-500" />;
     }
-  }, [usedFallbackIndices]);
+  };
 
-  /** Copy fact text to clipboard */
-  const copyToClipboard = useCallback(async () => {
-    if (!fact) return;
-    try {
-      await navigator.clipboard.writeText(fact.text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = fact.text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const getSeverityBadge = (severity) => {
+    switch (severity?.toLowerCase()) {
+      case 'critical': return <Badge variant="critical">Critical</Badge>;
+      case 'high': return <Badge variant="warning">High</Badge>;
+      case 'medium': return <Badge variant="info">Medium</Badge>;
+      default: return <Badge variant="low">Low</Badge>;
     }
-  }, [fact]);
-
-  /** Map severity to badge variant */
-  const getSeverityVariant = (severity) => {
-    const map = { critical: 'critical', high: 'high', medium: 'medium', low: 'low' };
-    return map[severity] || 'medium';
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-yellow-100 border border-yellow-200 flex items-center justify-center">
-          <Zap className="w-8 h-8 text-yellow-500" />
-        </div>
-        <h2 className="text-2xl md:text-3xl font-bold text-[#1a1a1a] mb-2">
-          Cyber-Fact Generator
-        </h2>
-        <p className="text-sm text-gray-500">
-          Discover shocking facts about internet fraud and cybersecurity in Kazakhstan
-        </p>
+    <div className="w-full h-[600px] overflow-hidden relative bg-[#fafafa] rounded-[3rem] border border-gray-100 shadow-inner">
+      {/* Gradients for fading edges */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#fafafa] to-transparent z-10 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#fafafa] to-transparent z-10 pointer-events-none" />
+      
+      <div className="flex gap-6 justify-center h-full pt-10 px-4 [&:hover>div>div]:[animation-play-state:paused]">
+        
+        {/* Helper function to render a column */}
+        {[0, 1, 2, 3].map((colIndex) => {
+          // Shuffle or offset the facts per column so they don't look identical
+          const columnFacts = [...facts].sort(() => 0.5 - Math.random());
+          const isScrollDown = colIndex % 2 !== 0;
+
+          return (
+            <div key={colIndex} className="w-[300px] h-full overflow-hidden hidden md:block first:block">
+              <motion.div 
+                animate={{ y: isScrollDown ? ['-50%', '0%'] : ['0%', '-50%'] }} 
+                transition={{ duration: 80 + (colIndex * 15), repeat: Infinity, ease: 'linear' }}
+                className="flex flex-col gap-6"
+              >
+                {columnFacts.map((fact, idx) => (
+                  <Card 
+                    key={`${idx}-${fact.text.substring(0,5)}`} 
+                    className="w-full bg-white hover:shadow-xl transition-shadow border border-gray-100 flex flex-col justify-between group cursor-pointer"
+                    padding="p-6"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="p-2 bg-gray-50 rounded-xl group-hover:bg-blue-50 transition-colors">
+                          {getIcon(fact.category)}
+                        </div>
+                        {getSeverityBadge(fact.severity)}
+                      </div>
+                      <p className="text-gray-700 font-medium leading-relaxed mb-4 text-[14px]">
+                        "{fact.text}"
+                      </p>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-gray-100">
+                      <p className="text-xs text-gray-400 font-medium flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                        {fact.source}
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </motion.div>
+            </div>
+          );
+        })}
       </div>
-
-      {/* Fact Display Card */}
-      <Card
-        className={`mb-6 min-h-[220px] flex flex-col justify-center transition-all duration-700 relative overflow-hidden ${
-          loading ? 'animate-rainbow border-2' : fact ? 'border-gray-200' : 'border-gray-100'
-        }`}
-        glow={!!fact && !loading}
-      >
-        <div className="absolute inset-0 bg-white/40 pointer-events-none" />
-        {!fact && !loading && (
-          <div className="text-center py-8">
-            <AlertTriangle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500">Click the button below to generate a cyber fact</p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="py-6 px-6 w-full relative z-10">
-            <div className="flex items-center gap-2 mb-6 animate-pulse">
-              <div className="h-6 w-20 bg-gray-200 rounded-lg"></div>
-              <div className="h-6 w-24 bg-gray-100 rounded-lg"></div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="h-5 bg-gray-200 rounded-full w-full overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
-              </div>
-              <div className="h-5 bg-gray-200 rounded-full w-11/12 overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
-              </div>
-              <div className="h-5 bg-gray-200 rounded-full w-4/6 overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
-              </div>
-            </div>
-            
-            <div className="h-4 w-40 bg-gray-100 mt-8 rounded-full relative overflow-hidden">
-               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent -translate-x-full animate-shimmer"></div>
-            </div>
-          </div>
-        )}
-
-        {fact && !loading && (
-          <div className="relative z-10 p-6 animate-slide-up" style={{ animationDuration: '800ms' }}>
-            {/* Category and severity badges */}
-            <div className="flex items-center gap-2 mb-4">
-              <Badge variant="info">{fact.category}</Badge>
-              <Badge variant={getSeverityVariant(fact.severity)}>
-                {fact.severity}
-              </Badge>
-            </div>
-
-            {/* Fact text */}
-            <p className="text-lg md:text-xl leading-relaxed text-gray-700 mb-4 font-medium">
-              "{fact.text}"
-            </p>
-
-            {/* Source */}
-            <p className="text-xs text-gray-500">
-              Source: <span className="text-gray-800 font-semibold">{fact.source}</span>
-            </p>
-          </div>
-        )}
-      </Card>
-
-      {/* Action buttons */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={fetchFact}
-          loading={loading}
-          icon={RefreshCw}
-          className="flex-1"
-        >
-          {fact ? 'Generate New Fact' : 'Generate Fact'}
-        </Button>
-
-        {fact && (
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={copyToClipboard}
-            icon={copied ? Check : Copy}
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </Button>
-        )}
-      </div>
-
-      {error && (
-        <p className="text-xs text-red-400 mt-3 text-center">{error}</p>
-      )}
     </div>
   );
 };

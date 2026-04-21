@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 
 /**
@@ -7,6 +8,7 @@ import Button from '../ui/Button';
  * Displays whether the choice was correct and educational explanation.
  */
 const FeedbackModal = ({ choice, onNext, isLastScenario }) => {
+  const { t } = useTranslation();
   if (!choice) return null;
 
   const isCorrect = choice.isCorrect;

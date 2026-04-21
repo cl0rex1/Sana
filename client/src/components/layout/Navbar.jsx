@@ -35,11 +35,11 @@ const Navbar = () => {
   };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'pt-8 px-4' : 'pt-0 px-0'}`}>
-      <div className={`mx-auto transition-all duration-500 ${
+    <nav className={`fixed top-4 md:top-6 left-0 right-0 z-50 w-full transition-all duration-500 px-4`}>
+      <div className={`mx-auto transition-all duration-500 rounded-full ${
         isScrolled 
-          ? 'max-w-[1000px] bg-white/80 backdrop-blur-xl shadow-lg border border-gray-200/50 rounded-full px-6' 
-          : 'max-w-[1400px] bg-transparent px-4 sm:px-6 lg:px-8'
+          ? 'max-w-[1000px] bg-white/80 backdrop-blur-xl shadow-lg border border-gray-200/50 px-6' 
+          : 'max-w-[1400px] bg-transparent sm:px-6 lg:px-8 px-4'
       }`}>
         <div className={`flex items-center justify-between transition-all duration-500 ${isScrolled ? 'h-16' : 'h-20'}`}>
           
@@ -103,7 +103,7 @@ const Navbar = () => {
 
       {/* Mobile Navigation */}
       {isOpen && (
-        <div className="md:hidden bg-white border-b border-gray-200 absolute top-20 left-0 w-full shadow-lg z-50">
+        <div className="md:hidden bg-white border border-gray-200 absolute top-[4.5rem] left-4 right-4 rounded-2xl shadow-xl z-50 overflow-hidden">
           <div className="px-4 py-4 flex flex-col gap-2">
             {navLinks.map(({ path, label }) => (
               <Link

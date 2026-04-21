@@ -4,14 +4,15 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
+// Load environment variables early
+dotenv.config();
+
 // Route imports
 const factRoutes = require('./routes/factRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const authRoutes = require('./routes/authRoutes');
-
-// Load environment variables
-dotenv.config();
+const aiRoutes = require('./routes/aiRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +50,7 @@ app.use('/api/facts', factRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler for undefined routes
 app.use((req, res) => {

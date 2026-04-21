@@ -13,11 +13,16 @@ const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
   const [hoveredLang, setHoveredLang] = useState(null);
   const [origin, setOrigin] = useState({ x: '100%', y: '0%' });
 
-  const titles = {
-    en: 'Select Language',
-    ru: 'Выберите язык',
-    kz: 'Тілді таңдаңыз'
-  };
+  const titles = ['Select Language', 'Выберите язык', 'Тілді таңдаңыз'];
+  const [cycleIndex, setCycleIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen || hoveredLang) return;
+    const interval = setInterval(() => {
+      setCycleIndex((prev) => (prev + 1) % titles.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isOpen, hoveredLang]);
 
   // Mount/unmount effect for smooth entrance/exit
   useEffect(() => {
@@ -81,7 +86,9 @@ const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
             isOpen ? 'opacity-100 translate-y-0 delay-[500ms]' : 'opacity-0 translate-y-10'
           }`}>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#1a1a1a] mb-12 h-[1.2em] transition-all duration-300">
-              {hoveredLang ? titles[hoveredLang] : (titles[i18n.language] || titles.en)}
+              {hoveredLang 
+                ? (hoveredLang === 'en' ? 'Select Language' : hoveredLang === 'ru' ? 'Выберите язык' : 'Тілді таңдаңыз') 
+                : titles[cycleIndex]}
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">

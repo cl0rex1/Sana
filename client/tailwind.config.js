@@ -43,6 +43,14 @@ export default {
           '80%': { borderColor: '#8b5cf6' },
           '100%': { borderColor: '#ef4444' },
         },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-15px)' },
+        },
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 15px rgba(255, 255, 255, 0.5)' },
+          '50%': { boxShadow: '0 0 30px rgba(255, 255, 255, 0.8)' },
+        }
       },
       animation: {
         'shimmer': 'shimmer 2s infinite linear',
