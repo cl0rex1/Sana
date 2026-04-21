@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "home": "Home",
+    "simulation": "Simulation",
+    "dashboard": "Dashboard",
+    "login": "Login",
+    "profile": "Profile"
+  },
+  "home": {
+    "title1": "There is a",
+    "title2": "Better Way",
+    "title3": "to Secure",
+    "subtitle": "Sana is a cybersecurity awareness platform that finds weaknesses in your digital literacy to avoid costly data breaches.",
+    "cta": "Let's Connect"
+  },
+  "simulation": {
+    "title": "Simulation",
+    "start": "Start Simulation",
+    "score": "Your Score"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalIncidents": "Total Incidents"
+  },
+  "auth": {
+    "loginTitle": "Welcome Back",
+    "registerTitle": "Create Account",
+    "email": "Email",
+    "password": "Password",
+    "username": "Username",
+    "submit": "Submit"
+  }
+}
