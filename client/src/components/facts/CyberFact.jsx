@@ -17,39 +17,53 @@ import { motion, AnimatePresence, useInView } from 'framer-motion';
  */
 
 // ─── Mock Data ────────────────────────────────────────────────────────
-const wallFacts = [
-  { text: 'In 2024, Kazakhstan recorded over 20,000 cases of internet fraud, with total damages exceeding ₸12 billion.', category: 'fraud', severity: 'critical', source: 'Ministry of Internal Affairs of Kazakhstan' },
-  { text: 'Over 67% of phishing attacks in Central Asia use fake banking websites mimicking Kaspi Bank and Halyk Bank.', category: 'phishing', severity: 'critical', source: 'CERT-KZ Report 2024' },
-  { text: 'Cyberbullying among Kazakh teens aged 12-17 increased by 43% between 2023-2025.', category: 'cyberbullying', severity: 'high', source: 'UNICEF Kazakhstan' },
-  { text: '38% of Kazakh internet users reuse the same password for banking, social media, and email.', category: 'identity-theft', severity: 'high', source: 'Digital Security Survey KZ 2024' },
-  { text: 'Deepfake voice scams have emerged in Kazakhstan — criminals clone voices from just 3 seconds of audio.', category: 'fraud', severity: 'critical', source: 'AI Fraud Watch CIS 2025' },
-  { text: 'SIM-swapping attacks in Kazakhstan grew by 320% in 2024, draining bank accounts within minutes.', category: 'identity-theft', severity: 'critical', source: 'Telecom Security Task Force KZ' },
-  { text: 'Over 80% of data breaches involve stolen or weak credentials, not advanced hacking techniques.', category: 'phishing', severity: 'high', source: 'Verizon DBIR 2024' },
-  { text: 'A cyberattack occurs every 39 seconds globally, affecting mostly unsuspecting individuals.', category: 'fraud', severity: 'medium', source: 'University of Maryland Study' },
-  { text: 'Public Wi-Fi networks in cafes account for 22% of localized man-in-the-middle attacks.', category: 'fraud', severity: 'medium', source: 'Norton Cyber Safety Report' },
-  { text: 'Fake banking apps on third-party stores steal credentials from 1 in 15 users who download them.', category: 'phishing', severity: 'high', source: 'Kaspersky Mobile Threat Report' },
-  { text: '95% of cybersecurity breaches are caused by human error, according to industry research.', category: 'fraud', severity: 'high', source: 'IBM X-Force Threat Intelligence' },
-  { text: 'Using multi-factor authentication blocks 99.9% of automated account takeover attacks.', category: 'identity-theft', severity: 'critical', source: 'Microsoft Security Research' },
-  { text: 'Spear-phishing emails targeting specific individuals have a 70% higher open rate than mass spam.', category: 'phishing', severity: 'critical', source: 'Proofpoint Threat Report 2024' },
-  { text: 'The average financial loss from a successful social engineering attack is over $3,000 per victim.', category: 'identity-theft', severity: 'critical', source: 'FBI IC3 Annual Report' },
-  { text: 'QR code phishing (Quishing) became a major threat in CIS, leading to 15% of all mobile fraud.', category: 'phishing', severity: 'high', source: 'Group-IB Threat Intelligence' },
-  { text: 'Password "123456" is still used by millions, accounting for 10% of brute-force successes.', category: 'identity-theft', severity: 'high', source: 'NordPass Password Study 2024' },
-];
+const wallFactsByLang = {
+  en: [
+    { text: 'Internet fraud remains one of the fastest-growing cyber threats for everyday users.', category: 'fraud', severity: 'critical', source: 'Sana Research' },
+    { text: 'Phishing pages often imitate familiar banking and delivery services to steal credentials.', category: 'phishing', severity: 'high', source: 'CERT-KZ' },
+    { text: 'Reusing one password across services dramatically increases account takeover risk.', category: 'identity-theft', severity: 'high', source: 'Microsoft Security Research' },
+    { text: 'Two-factor authentication blocks most automated account takeover attempts.', category: 'identity-theft', severity: 'critical', source: 'Microsoft Security Research' },
+    { text: 'Attackers frequently target urgent emotions to force risky clicks and transfers.', category: 'fraud', severity: 'medium', source: 'Sana Research' },
+    { text: 'Fake mobile apps can mimic trusted tools while collecting login data in the background.', category: 'phishing', severity: 'high', source: 'Kaspersky Mobile Threat Report' },
+    { text: 'Timely app and OS updates close vulnerabilities that malware campaigns actively exploit.', category: 'fraud', severity: 'medium', source: 'Sana Research' },
+    { text: 'Weak account recovery settings can be abused even when the primary password is strong.', category: 'identity-theft', severity: 'high', source: 'Sana Research' },
+  ],
+  ru: [
+    { text: 'Интернет-мошенничество остается одной из самых быстрорастущих киберугроз для обычных пользователей.', category: 'fraud', severity: 'critical', source: 'Sana Research' },
+    { text: 'Фишинговые страницы часто имитируют знакомые банковские и сервисные сайты, чтобы украсть учетные данные.', category: 'phishing', severity: 'high', source: 'CERT-KZ' },
+    { text: 'Повторное использование одного пароля в разных сервисах резко повышает риск захвата аккаунтов.', category: 'identity-theft', severity: 'high', source: 'Microsoft Security Research' },
+    { text: 'Двухфакторная аутентификация блокирует большую часть автоматических попыток захвата аккаунта.', category: 'identity-theft', severity: 'critical', source: 'Microsoft Security Research' },
+    { text: 'Злоумышленники часто давят на срочность и страх, чтобы подтолкнуть к опасным действиям.', category: 'fraud', severity: 'medium', source: 'Sana Research' },
+    { text: 'Поддельные мобильные приложения могут выглядеть как полезные сервисы и скрытно собирать логины.', category: 'phishing', severity: 'high', source: 'Kaspersky Mobile Threat Report' },
+    { text: 'Своевременные обновления системы и приложений закрывают уязвимости, используемые вредоносным ПО.', category: 'fraud', severity: 'medium', source: 'Sana Research' },
+    { text: 'Слабые настройки восстановления доступа могут быть использованы даже при сложном пароле.', category: 'identity-theft', severity: 'high', source: 'Sana Research' },
+  ],
+  kz: [
+    { text: 'Интернет-алаяқтық қарапайым пайдаланушылар үшін ең жылдам өсіп жатқан киберқауіптердің бірі болып отыр.', category: 'fraud', severity: 'critical', source: 'Sana Research' },
+    { text: 'Фишинг беттері логин мен құпиясөзді ұрлау үшін банк және сервис сайттарына ұқсап жасалады.', category: 'phishing', severity: 'high', source: 'CERT-KZ' },
+    { text: 'Бір құпиясөзді бірнеше сервисте қолдану аккаунтты басып алу қаупін күрт арттырады.', category: 'identity-theft', severity: 'high', source: 'Microsoft Security Research' },
+    { text: 'Екі факторлы аутентификация аккаунтты автоматты түрде бұзып кіру әрекеттерінің көбін тоқтатады.', category: 'identity-theft', severity: 'critical', source: 'Microsoft Security Research' },
+    { text: 'Шабуылдаушылар қауіпті әрекетке итермелеу үшін жиі асықтыру және қорқыту тактикасын қолданады.', category: 'fraud', severity: 'medium', source: 'Sana Research' },
+    { text: 'Жалған мобильді қосымшалар пайдалы құрал сияқты көрініп, фондық режимде деректерді жинай алады.', category: 'phishing', severity: 'high', source: 'Kaspersky Mobile Threat Report' },
+    { text: 'Жүйе мен қосымшаларды уақытында жаңарту зиянды код пайдаланатын осалдықтарды жабады.', category: 'fraud', severity: 'medium', source: 'Sana Research' },
+    { text: 'Қалпына келтіру параметрлері әлсіз болса, күрделі құпиясөздің өзі аккаунтты толық қорғамайды.', category: 'identity-theft', severity: 'high', source: 'Sana Research' },
+  ],
+};
 
-// Split facts into 4 columns
-const col1 = wallFacts.filter((_, i) => i % 4 === 0);
-const col2 = wallFacts.filter((_, i) => i % 4 === 1);
-const col3 = wallFacts.filter((_, i) => i % 4 === 2);
-const col4 = wallFacts.filter((_, i) => i % 4 === 3);
-const columns = [col1, col2, col3, col4];
+const normalizeLang = (lang) => {
+  const normalized = (lang || 'en').toString().toLowerCase();
+  if (normalized.startsWith('ru')) return 'ru';
+  if (normalized.startsWith('kz') || normalized.startsWith('kk')) return 'kz';
+  return 'en';
+};
 
-const pickLocalFact = () => wallFacts[Math.floor(Math.random() * wallFacts.length)];
+const pickLocalFact = (facts) => facts[Math.floor(Math.random() * facts.length)];
 
-const normalizeFact = (fact) => ({
-  text: fact?.text || pickLocalFact().text,
+const normalizeFact = (fact, fallbackFact) => ({
+  text: fact?.text || fallbackFact?.text || '',
   category: (fact?.category || 'general').toString().toLowerCase(),
   severity: (fact?.severity || 'medium').toString().toLowerCase(),
-  source: fact?.source || 'Sana Research',
+  source: fact?.source || fallbackFact?.source || 'Sana Research',
 });
 
 const isServerFallbackFact = (fact) =>
@@ -58,7 +72,10 @@ const isServerFallbackFact = (fact) =>
   fact.category === 'System' ||
   fact.source === 'Sana Security Lab';
 
-const guaranteedLocalFact = () => normalizeFact(pickLocalFact());
+const guaranteedLocalFact = (facts) => {
+  const fallbackFact = pickLocalFact(facts);
+  return normalizeFact(fallbackFact, fallbackFact);
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 const getIcon = (cat) => {
@@ -136,9 +153,17 @@ const ScrollColumn = ({ facts, direction = 'down', duration = 30 }) => {
 // ─── Main Component ─────────────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════
 const CyberFact = () => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const containerRef = useRef(null);
   const isInView = useInView(containerRef, { once: true, amount: 0.4 });
+  const normalizedLang = normalizeLang(i18n.language);
+  const wallFacts = wallFactsByLang[normalizedLang] || wallFactsByLang.en;
+
+  const col1 = wallFacts.filter((_, index) => index % 4 === 0);
+  const col2 = wallFacts.filter((_, index) => index % 4 === 1);
+  const col3 = wallFacts.filter((_, index) => index % 4 === 2);
+  const col4 = wallFacts.filter((_, index) => index % 4 === 3);
+  const columns = [col1, col2, col3, col4];
 
   const [phase, setPhase] = useState('wall'); // wall | rush | loading | fact
   const [aiFact, setAiFact] = useState(null);
@@ -161,26 +186,26 @@ const CyberFact = () => {
 
     // 2) Try DB-backed random fact
     try {
-      const randomResponse = await api.get('/facts/random');
+      const randomResponse = await api.get(`/facts/random?lang=${i18n.language}`);
       const randomFact = randomResponse?.data || randomResponse;
       if (randomFact?.text) {
-        return normalizeFact(randomFact);
+        return normalizeFact(randomFact, pickLocalFact(wallFacts));
       }
     } catch {
       // Ignore and continue with local fallback.
     }
 
     // 3) Final local fallback
-    return guaranteedLocalFact();
-  }, [i18n.language]);
+    return guaranteedLocalFact(wallFacts);
+  }, [i18n.language, wallFacts]);
 
   const fetchBestFactSafe = useCallback(async (options = {}) => {
     try {
       return await fetchBestFact(options);
     } catch {
-      return guaranteedLocalFact();
+      return guaranteedLocalFact(wallFacts);
     }
-  }, [fetchBestFact]);
+  }, [fetchBestFact, wallFacts]);
 
   // Start rush when the section becomes visible
   useEffect(() => {
@@ -243,14 +268,14 @@ const CyberFact = () => {
 
     const timer = setTimeout(() => {
       if (!aiFact) {
-        setAiFact(guaranteedLocalFact());
+        setAiFact(guaranteedLocalFact(wallFacts));
       }
       setBgState('ready');
       setPhase('fact');
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [phase, aiFact]);
+  }, [phase, aiFact, wallFacts]);
 
   // Replay
   const replay = useCallback(() => {
@@ -273,7 +298,7 @@ const CyberFact = () => {
     }
   }, [phase, bgState, aiFact]);
 
-  const trainFacts = wallFacts;
+  const trainFacts = [...wallFacts, ...wallFacts.slice(0, 2)];
 
   return (
     <div
@@ -298,7 +323,7 @@ const CyberFact = () => {
                     transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />
                 ))}
               </div>
-              <p className="text-sm font-semibold text-[#1a1a1a]">Generating cyber fact…</p>
+              <p className="text-sm font-semibold text-[#1a1a1a]">{t('simulation.generatingFact')}</p>
             </motion.div>
           )}
 
@@ -321,9 +346,9 @@ const CyberFact = () => {
                   />
                 ))}
               </div>
-              <p className="text-base font-semibold text-[#1a1a1a]">Preparing your cyber fact...</p>
+              <p className="text-base font-semibold text-[#1a1a1a]">{t('simulation.preparingFact')}</p>
               <p className="text-xs text-gray-500 max-w-sm">
-                If AI is busy, Sana will instantly use verified database facts.
+                {t('simulation.factFallbackNote')}
               </p>
             </motion.div>
           )}
@@ -354,11 +379,11 @@ const CyberFact = () => {
                       onClick={generateFact}
                       disabled={cooldown}
                       className={`px-4 py-2 bg-[#1a1a1a] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md ${cooldown ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                      <Sparkles className="w-3 h-3" /> {cooldown ? 'Wait...' : 'New Fact'}
+                      <Sparkles className="w-3 h-3" /> {cooldown ? t('simulation.wait') : t('simulation.newFact')}
                     </motion.button>
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={replay}
                       className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-200 transition-colors">
-                      <RotateCcw className="w-3 h-3" /> Replay
+                      <RotateCcw className="w-3 h-3" /> {t('simulation.replay')}
                     </motion.button>
                   </div>
                 </div>
@@ -416,8 +441,8 @@ const CyberFact = () => {
                 <motion.div
                   className="absolute top-0 h-full flex items-stretch gap-8 py-4"
                   initial={{ left: '110%' }}
-                  animate={{ left: '-9000px' }}
-                  transition={{ duration: 5.5, ease: [0.08, 0.0, 0.2, 1] }}
+                    animate={{ left: '-11000px' }}
+                    transition={{ duration: 6.8, ease: [0.08, 0.0, 0.2, 1] }}
                   onAnimationComplete={handleTrainEnd}
                 >
                   {trainFacts.map((fact, i) => (
@@ -460,7 +485,7 @@ const CyberFact = () => {
               animate={{ opacity: [0, 1, 1, 0] }}
               transition={{ 
                 times: [0, 0.1, 0.6, 0.9], 
-                duration: 4,
+                duration: 4.5,
                 ease: "easeInOut"
               }}
             >
@@ -471,7 +496,7 @@ const CyberFact = () => {
                 }}
               />
               {/* Sana branding — moved outside the card boundaries */}
-              <div className="absolute left-[10vw] top-1/2 -translate-y-1/2 flex flex-col items-start gap-4">
+              <div className="absolute left-[7vw] top-1/2 -translate-y-1/2 flex flex-col items-start gap-4">
                 <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-2xl">
                   <div className="w-6 h-6 bg-white rounded-[5px]" />
                 </div>

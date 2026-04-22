@@ -1,174 +1,327 @@
-import React, { useState, useCallback } from 'react';
-import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
-import scenarios from '../../data/scenarios';
+import scenariosFallback from '../../data/scenarios';
 import ScenarioCard from './ScenarioCard';
 import FeedbackModal from './FeedbackModal';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ProgressBar from '../ui/ProgressBar';
 import Badge from '../ui/Badge';
+import { useAuth } from '../../context/AuthContext';
 
 /**
- * Main Life Scenario simulation component with AI Generation.
- * Manages the full game flow: intro → loading → playing → feedback → results.
+ * Main Simulation Hub & Runner.
+ * Manages intro menu (lists, AI/Random buttons), playing logic, results, and test creation.
  */
-const TOTAL_SCENARIOS_PER_RUN = 5;
-
 const LifeScenario = () => {
   const { t, i18n } = useTranslation();
-  const [gameState, setGameState] = useState('intro'); // intro | loading | playing | feedback | results
+  const { user } = useAuth() || { user: null };
+  const AI_TEST_COUNT = 5;
+  const [gameState, setGameState] = useState('hub'); // hub | creating | loading | playing | feedback | results
+  const [testMode, setTestMode] = useState(null); // 'ai', 'random', 'specific'
+  const [approvedTests, setApprovedTests] = useState([]);
+  const [scenarioError, setScenarioError] = useState('');
+  
+  // Game running state
+  const [runPipeline, setRunPipeline] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentScenario, setCurrentScenario] = useState(null);
   const [selectedChoice, setSelectedChoice] = useState(null);
   const [results, setResults] = useState([]);
+  
+  // Create Test Form state
+  const [createForm, setCreateForm] = useState({
+    title: '', description: '',
+    choices: [
+      { text: '', isCorrect: true, feedback: '' },
+      { text: '', isCorrect: false, feedback: '' },
+      { text: '', isCorrect: false, feedback: '' }
+    ]
+  });
 
   const correctCount = results.filter((r) => r.isCorrect).length;
 
-  /** Fetch an AI-generated scenario or fallback to local */
-  const fetchNextScenario = async (attemptIndex) => {
-    setGameState('loading');
+  useEffect(() => {
+    if (gameState === 'hub') {
+      fetchApprovedTests();
+    }
+  }, [gameState, i18n.language]);
+
+  const fetchApprovedTests = async () => {
     try {
-      const response = await api.get(`/ai/scenario?lang=${i18n.language}`);
-      if (response.data && response.data.choices) {
-        setCurrentScenario(response.data);
-      } else {
-        throw new Error("Invalid format");
-      }
+      const res = await api.get(`/scenarios/approved?lang=${i18n.language}`);
+      setApprovedTests(res.data || []);
     } catch (err) {
-      console.warn("Using local fallback for scenario...");
-      // Fallback to static scenario (looping if array is short)
-      setCurrentScenario(scenarios[attemptIndex % scenarios.length]);
-    } finally {
-      setGameState('playing');
+      console.error('Failed to load approved scenarios', err);
     }
   };
 
-  /** Start the simulation */
-  const startGame = useCallback(async () => {
+  /** Start a specific set of tests or dynamic flow */
+  const fetchNextScenario = useCallback(async (idx, mode, pipeline) => {
+    setGameState('loading');
+    try {
+      let scenarioData = null;
+      if (pipeline && pipeline.length > idx) {
+        scenarioData = pipeline[idx];
+      } else if (mode === 'ai' || (mode === 'random' && approvedTests.length === 0)) {
+        // AI Generation or fallback if DB empty
+        const response = await api.get(`/ai/scenario?lang=${i18n.language}`);
+        scenarioData = response?.choices ? response : response?.data;
+        if (!scenarioData?.choices) throw new Error("Invalid format");
+      } else if (mode === 'random') {
+        const randomItem = approvedTests[Math.floor(Math.random() * approvedTests.length)];
+        scenarioData = randomItem;
+      }
+      
+      setCurrentScenario(scenarioData || scenariosFallback[idx % scenariosFallback.length]);
+      setGameState('playing');
+    } catch (err) {
+      console.warn('Scenario load failed:', err);
+      if (mode === 'ai' || (mode === 'random' && approvedTests.length === 0)) {
+        setScenarioError(t('simulation.aiError'));
+        setGameState('error');
+        return;
+      }
+
+      setCurrentScenario(scenariosFallback[idx % scenariosFallback.length]);
+      setGameState('playing');
+    }
+  }, [approvedTests, i18n.language, t]);
+
+  const startTest = useCallback(async (mode, targetScenarios = null) => {
+    setTestMode(mode);
     setCurrentIndex(0);
     setResults([]);
     setSelectedChoice(null);
-    await fetchNextScenario(0);
-  }, [i18n.language]);
+    setScenarioError('');
+    setRunPipeline(targetScenarios || []);
+    setGameState('loading');
 
-  /** Handle user choosing an answer */
-  const handleChoice = useCallback(
-    (choice) => {
-      setSelectedChoice(choice);
-      setResults((prev) => [
-        ...prev,
-        {
-          scenarioId: currentScenario.id,
-          scenarioTitle: currentScenario.title,
-          choiceId: choice.id,
-          choiceText: choice.text,
-          isCorrect: choice.isCorrect,
-        },
-      ]);
-      setGameState('feedback');
-    },
-    [currentScenario]
-  );
+    if (mode === 'ai') {
+      try {
+        const batch = await api.get(`/ai/test?lang=${i18n.language}&count=${AI_TEST_COUNT}`, {
+          timeout: 70000,
+        });
+        if (!Array.isArray(batch) || batch.length === 0) {
+          throw new Error('Invalid AI test batch');
+        }
 
-  /** Move to next scenario or show results */
+        setRunPipeline(batch);
+        await fetchNextScenario(0, 'specific', batch);
+        return;
+      } catch (err) {
+        console.warn('AI test batch load failed:', err);
+        setScenarioError(t('simulation.aiError'));
+        setGameState('error');
+        return;
+      }
+    }
+
+    await fetchNextScenario(0, mode, targetScenarios);
+  }, [AI_TEST_COUNT, fetchNextScenario, i18n.language, t]);
+
+  const handleChoice = useCallback((choice) => {
+    setSelectedChoice(choice);
+    setResults((prev) => [
+      ...prev,
+      {
+        scenarioId: currentScenario._id || currentScenario.id,
+        scenarioTitle: currentScenario.title,
+        choiceId: choice.id || choice._id,
+        choiceText: choice.text,
+        isCorrect: choice.isCorrect,
+      },
+    ]);
+    setGameState('feedback');
+  }, [currentScenario]);
+
   const handleNext = useCallback(async () => {
     setSelectedChoice(null);
-    if (currentIndex < TOTAL_SCENARIOS_PER_RUN - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      await fetchNextScenario(currentIndex + 1);
+    const totalCount = runPipeline.length > 0 ? runPipeline.length : 5; // default to 5 for AI/Random
+    
+    if (currentIndex < totalCount - 1) {
+      const nextIdx = currentIndex + 1;
+      setCurrentIndex(nextIdx);
+      await fetchNextScenario(nextIdx, testMode, runPipeline);
     } else {
       setGameState('results');
     }
-  }, [currentIndex, i18n.language]);
+  }, [currentIndex, fetchNextScenario, runPipeline, testMode]);
 
-  /** Restart the entire simulation */
   const restartGame = useCallback(() => {
-    setGameState('intro');
+    setGameState('hub');
+    setTestMode(null);
     setCurrentIndex(0);
-    setResults([]);
+    setCurrentScenario(null);
     setSelectedChoice(null);
+    setResults([]);
+    setRunPipeline([]);
+    setScenarioError('');
   }, []);
 
-  // Calculate score percentage
-  const scorePercentage = Math.round((correctCount / TOTAL_SCENARIOS_PER_RUN) * 100);
+  const submitNewTest = async (e) => {
+    e.preventDefault();
+    try {
+      setGameState('loading');
+      await api.post('/scenarios/submit', {
+        title: createForm.title,
+        description: createForm.description,
+        category: 'General',
+        choices: createForm.choices.map((c, i) => ({ ...c, id: String.fromCharCode(65 + i) })),
+        language: i18n.language
+      });
+      alert(t('simulation.testSubmitted') || 'Test submitted for AI moderation successfully!');
+      setGameState('hub');
+    } catch (err) {
+      console.error(err);
+      alert(t('simulation.submitFailed') || 'Failed to submit test');
+      setGameState('creating');
+    }
+  };
 
-  // ==================== INTRO SCREEN ====================
-  if (gameState === 'intro') {
+  // ==================== HUB SCREEN ====================
+  if (gameState === 'hub') {
     return (
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="max-w-4xl mx-auto"
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
+        className="max-w-5xl mx-auto space-y-8"
       >
-        {/* Main Hero Card */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-white to-gray-50 rounded-[3rem] border border-gray-200 p-10 md:p-16 mb-8 text-center shadow-sm">
-          {/* Decorative background graphics */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-white to-gray-50 rounded-[3rem] border border-gray-200 p-10 md:p-12 text-center shadow-sm">
           <div className="absolute top-0 right-0 w-64 h-64 bg-accent-cyan/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3"></div>
           
           <div className="relative z-10">
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
-              className="w-24 h-24 mx-auto mb-8 rounded-[2rem] bg-[#1a1a1a] shadow-[0_10px_30px_rgba(26,26,26,0.2)] flex items-center justify-center border border-gray-800"
-            >
-              <BrainCircuit className="w-12 h-12 text-white" />
-            </motion.div>
-            
             <h1 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] tracking-tight mb-4">
               {t('simulation.title')}
             </h1>
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed mb-10">
-              {t('home.subtitle')}
+            <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
+              {t('simulation.hubSubtitle')}
             </p>
             
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="inline-block">
-              <Button variant="primary" size="lg" onClick={startGame} icon={Target} className="px-10 py-4 text-lg shadow-lg hover:shadow-xl transition-all">
-                {t('simulation.start')}
-              </Button>
-            </motion.div>
+            <div className="flex flex-wrap justify-center gap-4">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button variant="primary" size="lg" onClick={() => startTest('ai')} icon={Sparkles} className="shadow-lg">
+                  {t('simulation.aiTest')}
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button variant="secondary" size="lg" onClick={() => startTest('random')} icon={Shuffle} className="shadow-sm bg-white hover:bg-gray-50 border-gray-200">
+                  {t('simulation.randomTest')}
+                </Button>
+              </motion.div>
+              {user && (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="outline" size="lg" onClick={() => setGameState('creating')} icon={Plus} className="border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-600">
+                    {t('simulation.createNewTest')}
+                  </Button>
+                </motion.div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Info cards staggered fade-in */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {[
-            { icon: Target, title: `${TOTAL_SCENARIOS_PER_RUN} ${t('simulation.scenarios')}`, desc: t('simulation.realThreats'), color: 'text-blue-600', bg: 'bg-blue-50' },
-            { icon: Zap, title: t('simulation.feedback'), desc: t('simulation.learnChoice'), color: 'text-yellow-600', bg: 'bg-yellow-50' },
-            { icon: Trophy, title: t('simulation.tracking'), desc: t('simulation.awarenessLevel'), color: 'text-purple-600', bg: 'bg-purple-50' }
-          ].map((item, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }}
-            >
-              <Card padding="p-6" className="bg-white hover:bg-gray-50 flex flex-col items-center justify-center text-center h-full border border-gray-100 shadow-sm rounded-3xl">
-                <div className={`w-14 h-14 mb-4 rounded-2xl ${item.bg} flex items-center justify-center ${item.color}`}>
-                  <item.icon className="w-6 h-6" />
-                </div>
-                <p className="text-base font-bold text-[#1a1a1a] mb-2">{item.title}</p>
-                <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
-              </Card>
-            </motion.div>
-          ))}
+        <div>
+          <h2 className="text-2xl font-bold text-[#1a1a1a] mb-6 flex items-center"><Target className="w-6 h-6 mr-2 text-blue-500" /> {t('simulation.communityScenarios')}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {approvedTests.length === 0 ? (
+              <p className="text-gray-400 col-span-3 text-center py-10 bg-gray-50 rounded-3xl border border-gray-100">{t('simulation.noCommunityScenarios')}</p>
+            ) : (
+              approvedTests.map((test, i) => (
+                <motion.div key={test._id || i} whileHover={{ y: -5 }}>
+                  <Card padding="p-6" className="h-full flex flex-col hover:shadow-lg transition-shadow bg-white rounded-[2rem] border border-gray-100 cursor-pointer" onClick={() => startTest('specific', [test])}>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex justify-center items-center text-xl">{test.icon || '🛡️'}</div>
+                      <Badge variant="primary">{test.category || 'General'}</Badge>
+                    </div>
+                    <h3 className="font-bold text-lg text-[#1a1a1a] mb-2">{test.title}</h3>
+                    <p className="text-gray-500 text-sm flex-1 line-clamp-3 mb-6">{test.description}</p>
+                    <Button variant="ghost" className="w-full justify-center text-blue-600 hover:bg-blue-50 rounded-xl" icon={Play}>{t('simulation.playTest')}</Button>
+                  </Card>
+                </motion.div>
+              ))
+            )}
+          </div>
         </div>
       </motion.div>
+    );
+  }
+
+  // ==================== CREATING SCREEN ====================
+  if (gameState === 'creating') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto p-8 bg-white rounded-[3rem] border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold text-[#1a1a1a]">{t('simulation.createScenario')}</h2>
+          <Button variant="ghost" onClick={() => setGameState('hub')} icon={XCircle}>{t('simulation.cancel')}</Button>
+        </div>
+        <p className="text-gray-500 mb-8 border-l-4 border-yellow-400 pl-4 py-1 bg-yellow-50/50 rounded-r-lg">
+          {t('simulation.reviewNotice')}
+        </p>
+        <form onSubmit={submitNewTest} className="space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('simulation.titleLabel')}</label>
+            <input required type="text" className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={createForm.title} onChange={e => setCreateForm({...createForm, title: e.target.value})} placeholder={t('simulation.titlePlaceholder')} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('simulation.descriptionLabel')}</label>
+            <textarea required rows={3} className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={createForm.description} onChange={e => setCreateForm({...createForm, description: e.target.value})} placeholder={t('simulation.descriptionPlaceholder')} />
+          </div>
+          <div className="space-y-4">
+            <label className="block text-sm font-semibold text-gray-700">{t('simulation.choicesLabel')}</label>
+            {createForm.choices.map((choice, i) => (
+              <div key={i} className={`p-4 rounded-2xl border ${i===0 ? 'border-emerald-200 bg-emerald-50/30' : 'border-red-200 bg-red-50/30'} space-y-3`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`font-bold text-sm ${i===0 ? 'text-emerald-700' : 'text-red-700'}`}>{t('simulation.choice')} {i+1} ({i===0 ? t('simulation.correct') : t('simulation.incorrect')})</span>
+                </div>
+                <input required type="text" placeholder={t('simulation.choiceTextPlaceholder')} className="w-full p-3 rounded-xl border border-gray-200" value={choice.text} onChange={e => { const newC = [...createForm.choices]; newC[i].text = e.target.value; setCreateForm({...createForm, choices: newC}) }} />
+                <input required type="text" placeholder={t('simulation.feedbackPlaceholder')} className="w-full p-3 rounded-xl border border-gray-200" value={choice.feedback} onChange={e => { const newC = [...createForm.choices]; newC[i].feedback = e.target.value; setCreateForm({...createForm, choices: newC}) }} />
+              </div>
+            ))}
+          </div>
+          <Button variant="primary" size="lg" className="w-full pt-4 mt-6 rounded-[1.5rem]" type="submit" icon={CheckCircle}>{t('simulation.submitForModeration')}</Button>
+        </form>
+      </motion.div>
+    );
+  }
+
+  const totalCount = runPipeline.length > 0 ? runPipeline.length : 5;
+  const scorePercentage = Math.round((correctCount / totalCount) * 100);
+
+  // ==================== LOADING SCREEN ====================
+  if (gameState === 'loading') {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 animate-pulse">
+        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+        <p className="text-gray-500 font-medium">{t('simulation.processing')}</p>
+      </div>
+    );
+  }
+
+  if (gameState === 'error') {
+    return (
+      <Card className="max-w-2xl mx-auto text-center p-8 rounded-[3rem] border border-red-200 bg-white shadow-sm">
+        <AlertOctagon className="w-14 h-14 text-red-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-[#1a1a1a] mb-2">{t('simulation.aiErrorTitle')}</h2>
+        <p className="text-gray-600 mb-6">{scenarioError || t('simulation.aiError')}</p>
+        <div className="flex justify-center">
+          <Button variant="primary" onClick={restartGame} icon={RotateCcw}>
+            {t('simulation.backToHub')}
+          </Button>
+        </div>
+      </Card>
     );
   }
 
   // ==================== RESULTS SCREEN ====================
   if (gameState === 'results') {
     const getGrade = () => {
-      if (scorePercentage >= 90) return { label: 'Cyber Expert', color: 'text-emerald-500', icon: <Shield className="w-12 h-12 text-emerald-500 mx-auto" /> };
-      if (scorePercentage >= 70) return { label: 'Aware Citizen', color: 'text-blue-500', icon: <CheckCircle className="w-12 h-12 text-blue-500 mx-auto" /> };
-      if (scorePercentage >= 50) return { label: 'Needs Training', color: 'text-yellow-500', icon: <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto" /> };
-      return { label: 'High Risk', color: 'text-red-500', icon: <AlertOctagon className="w-12 h-12 text-red-500 mx-auto" /> };
+      if (scorePercentage >= 90) return { label: t('simulation.grade.expert', 'Cyber Expert'), color: 'text-emerald-500', icon: <Shield className="w-12 h-12 text-emerald-500 mx-auto" /> };
+      if (scorePercentage >= 70) return { label: t('simulation.grade.aware', 'Aware Citizen'), color: 'text-blue-500', icon: <CheckCircle className="w-12 h-12 text-blue-500 mx-auto" /> };
+      if (scorePercentage >= 50) return { label: t('simulation.grade.needsTraining', 'Needs Training'), color: 'text-yellow-500', icon: <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto" /> };
+      return { label: t('simulation.grade.risk', 'High Risk'), color: 'text-red-500', icon: <AlertOctagon className="w-12 h-12 text-red-500 mx-auto" /> };
     };
 
     const grade = getGrade();
@@ -190,15 +343,15 @@ const LifeScenario = () => {
             </div>
             <span className="text-3xl font-mono font-bold text-[#1a1a1a]">{scorePercentage}%</span>
           </div>
-          <ProgressBar value={correctCount} max={TOTAL_SCENARIOS_PER_RUN} showPercentage={false} />
+          <ProgressBar value={correctCount} max={totalCount} showPercentage={false} />
           <p className="text-sm text-gray-600 mt-3">
-            {correctCount} correct out of {TOTAL_SCENARIOS_PER_RUN} scenarios
+            {t('simulation.correctOut', { correct: correctCount, total: totalCount, defaultValue: `${correctCount} correct out of ${totalCount} scenarios` })}
           </p>
         </Card>
 
         {/* Results breakdown */}
         <div className="space-y-3 mb-8">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Breakdown</h3>
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">{t('simulation.breakdown', 'Breakdown')}</h3>
           {results.map((result, index) => (
             <div
               key={index}
@@ -217,7 +370,7 @@ const LifeScenario = () => {
                 <p className="text-sm font-medium text-[#1a1a1a] truncate">{result.scenarioTitle}</p>
               </div>
               <Badge variant={result.isCorrect ? 'low' : 'critical'}>
-                {result.isCorrect ? 'Safe' : 'Risky'}
+                {result.isCorrect ? t('simulation.safe', 'Safe') : t('simulation.risky', 'Risky')}
               </Badge>
             </div>
           ))}
@@ -239,7 +392,7 @@ const LifeScenario = () => {
       <div className="mb-6">
         <ProgressBar
           value={gameState === 'feedback' ? currentIndex + 1 : currentIndex}
-          max={TOTAL_SCENARIOS_PER_RUN}
+          max={totalCount}
           label={t('simulation.progress')}
         />
       </div>
@@ -253,8 +406,8 @@ const LifeScenario = () => {
                <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce"></div>
              </div>
-             <p className="text-lg font-bold text-[#1a1a1a] mb-2">AI is Generating a Scenario...</p>
-             <p className="text-sm text-gray-500 max-w-sm">Crafting a real-world cybersecurity dilemma specifically for you.</p>
+             <p className="text-lg font-bold text-[#1a1a1a] mb-2">{t('simulation.generatingTitle', 'AI is Generating a Scenario...')}</p>
+             <p className="text-sm text-gray-500 max-w-sm">{t('simulation.generatingDesc', 'Crafting a real-world dilemma...')}</p>
           </div>
         </Card>
       ) : (
@@ -264,7 +417,7 @@ const LifeScenario = () => {
             <ScenarioCard
               scenario={currentScenario}
               currentIndex={currentIndex}
-              total={TOTAL_SCENARIOS_PER_RUN}
+              total={totalCount}
               onChoose={handleChoice}
               disabled={gameState === 'feedback'}
             />
@@ -275,7 +428,7 @@ const LifeScenario = () => {
             <FeedbackModal
               choice={selectedChoice}
               onNext={handleNext}
-              isLastScenario={currentIndex === TOTAL_SCENARIOS_PER_RUN - 1}
+              isLastScenario={currentIndex === totalCount - 1}
             />
           )}
         </>

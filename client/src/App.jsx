@@ -9,6 +9,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
+import ArticlesPage from './pages/ArticlesPage';
 import { AuthProvider } from './context/AuthContext';
 
 /**
@@ -24,6 +25,7 @@ const App = () => {
           <Route path="/" element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="simulation" element={<SimulationPage />} />
+            <Route path="learn" element={<ArticlesPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />

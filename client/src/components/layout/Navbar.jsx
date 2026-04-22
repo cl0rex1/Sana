@@ -25,6 +25,7 @@ const Navbar = () => {
   const navLinks = [
     { path: '/', label: t('nav.home') },
     { path: '/simulation', label: t('nav.simulation') },
+    { path: '/learn', label: t('nav.features') || 'Learn' },
     { path: '/dashboard', label: t('nav.dashboard') },
   ];
 

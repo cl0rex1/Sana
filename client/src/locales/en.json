@@ -1,21 +1,38 @@
 {
   "nav": {
     "home": "Home",
-    "simulation": "Simulation",
+    "simulation": "Practice",
     "dashboard": "Dashboard",
     "login": "Login",
     "profile": "Profile",
-    "language": "Language"
+    "language": "Language",
+    "features": "Learn"
   },
   "home": {
     "title1": "There is",
     "title2": "The best way",
     "title3": "to protect",
     "subtitle": "Sana is a cybersecurity awareness platform that finds vulnerabilities in your digital literacy.",
-    "cta": "Get Started"
+    "cta": "Get Started",
+    "protection": {
+      "title": "How Sana Protects You",
+      "subtitle": "A comprehensive toolkit designed to test, train, and fortify your digital habits against modern social engineering tactics.",
+      "item1": {
+        "title": "Simulated Phishing Environments",
+        "description": "Experience hyper-realistic clones of popular Kazakh banking and service portals to test your awareness safely."
+      },
+      "item2": {
+        "title": "Device Vulnerability Checks",
+        "description": "Interactive lessons on securing your smartphone, 2FA setup, and identifying malicious apps masquerading as useful tools."
+      },
+      "visual": {
+        "title": "Real-Time Threat Analysis",
+        "description": "Our AI system continuously monitors and analyzes emerging scam tactics globally, instantly adapting our simulations to protect you against tomorrow's threats today."
+      }
+    }
   },
   "simulation": {
-    "title": "Simulation",
+    "title": "Practice",
     "start": "Start Simulation",
     "score": "Your Score",
     "progress": "Progress",
@@ -27,7 +44,57 @@
     "tracking": "Score Tracking",
     "realThreats": "Real-world threats",
     "learnChoice": "Learn from each choice",
-    "awarenessLevel": "See your awareness level"
+    "awarenessLevel": "See your awareness level",
+    "hubSubtitle": "Challenge yourself with community-created scenarios, an AI-generated test, or a random pick to see how well you recognize modern threats.",
+    "aiTest": "AI Test",
+    "randomTest": "Random Test",
+    "createNewTest": "Create New Test",
+    "communityScenarios": "Community Scenarios",
+    "noCommunityScenarios": "No community scenarios available yet. Be the first to create one!",
+    "playTest": "Play Test",
+    "createScenario": "Create Scenario",
+    "cancel": "Cancel",
+    "reviewNotice": "Your scenario will be reviewed by an AI moderator. Make sure one choice is clearly the correct action.",
+    "titleLabel": "Title",
+    "titlePlaceholder": "E.g., Suspicious Email",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the scene...",
+    "choicesLabel": "Choices (Top should be correct, bottom two incorrect)",
+    "choice": "Choice",
+    "correct": "Correct",
+    "incorrect": "Incorrect",
+    "choiceTextPlaceholder": "Action text",
+    "feedbackPlaceholder": "Feedback / explanation if selected",
+    "submitForModeration": "Submit for Moderation",
+    "processing": "Processing...",
+    "aiErrorTitle": "AI model unavailable",
+    "aiError": "The AI model could not generate a new scenario right now. Please try again later.",
+    "backToHub": "Back to hub",
+    "correctDecision": "Correct Decision!",
+    "riskyDecision": "Risky Decision!",
+    "remember": "Remember:",
+    "alwaysVigilant": "Always stay vigilant. Cybercriminals constantly evolve their tactics.",
+    "realSituationConsequence": "In a real situation, this choice could lead to financial loss, identity theft, or emotional harm.",
+    "viewResults": "View Results",
+    "nextScenario": "Next Scenario →",
+    "generatingFact": "Generating cyber fact…",
+    "preparingFact": "Preparing your cyber fact...",
+    "factFallbackNote": "If AI is busy, Sana will instantly use verified database facts.",
+    "wait": "Wait...",
+    "newFact": "New Fact",
+    "replay": "Replay",
+    "grade": {
+      "expert": "Cyber Expert",
+      "aware": "Aware Citizen",
+      "needsTraining": "Needs Training",
+      "risk": "High Risk"
+    },
+    "correctOut": "{{correct}} correct out of {{total}} scenarios",
+    "breakdown": "Breakdown",
+    "safe": "Safe",
+    "risky": "Risky",
+    "generatingTitle": "AI is Generating a Scenario...",
+    "generatingDesc": "Crafting a real-world dilemma..."
   },
   "dashboard": {
     "title": "Security Dashboard",
@@ -56,5 +123,31 @@
     "password": "Password",
     "username": "Username",
     "submit": "Submit"
+  },
+  "articles": {
+    "tag": {
+      "phishing": "Phishing",
+      "passwords": "Passwords",
+      "network": "Network",
+      "socialEng": "Social Engineering"
+    },
+    "subtitle": "Expand your cybersecurity knowledge with short, impactful articles.",
+    "readMore": "Read more",
+    "art1": {
+      "title": "How to Spot a Phishing Email",
+      "desc": "Learn the core markers of malicious emails and how they trick you."
+    },
+    "art2": {
+      "title": "The Power of 2FA",
+      "desc": "Secure your accounts with Two-Factor Authentication."
+    },
+    "art3": {
+      "title": "Public Wi-Fi Risks",
+      "desc": "Why you should never check your bank account at a cafe."
+    },
+    "art4": {
+      "title": "Social Engineering Basics",
+      "desc": "Hackers exploit human psychology. Here is what to look out for."
+    }
   }
 }

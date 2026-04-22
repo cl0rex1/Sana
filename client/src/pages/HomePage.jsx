@@ -364,8 +364,8 @@ const HomePage = () => {
           className="text-center mb-20"
         >
           <Badge variant="info" className="mb-4">Ecosystem</Badge>
-          <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] tracking-tight">How Sana Protects You</h2>
-          <p className="text-gray-500 mt-6 max-w-2xl mx-auto text-lg">A comprehensive toolkit designed to test, train, and fortify your digital habits against modern social engineering tactics.</p>
+          <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] tracking-tight">{t('home.protection.title')}</h2>
+          <p className="text-gray-500 mt-6 max-w-2xl mx-auto text-lg">{t('home.protection.subtitle')}</p>
         </motion.div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-20">
@@ -381,8 +381,8 @@ const HomePage = () => {
                 <Activity className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-[#1a1a1a] mb-2">Simulated Phishing Environments</h3>
-                <p className="text-gray-600 leading-relaxed">Experience hyper-realistic clones of popular Kazakh banking and service portals to test your awareness safely.</p>
+                <h3 className="text-xl font-bold text-[#1a1a1a] mb-2">{t('home.protection.item1.title')}</h3>
+                <p className="text-gray-600 leading-relaxed">{t('home.protection.item1.description')}</p>
               </div>
             </div>
             <div className="flex gap-4">
@@ -390,8 +390,8 @@ const HomePage = () => {
                 <Smartphone className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-[#1a1a1a] mb-2">Device Vulnerability Checks</h3>
-                <p className="text-gray-600 leading-relaxed">Interactive lessons on securing your smartphone, 2FA setup, and identifying malicious apps masquerading as useful tools.</p>
+                <h3 className="text-xl font-bold text-[#1a1a1a] mb-2">{t('home.protection.item2.title')}</h3>
+                <p className="text-gray-600 leading-relaxed">{t('home.protection.item2.description')}</p>
               </div>
             </div>
           </motion.div>
@@ -501,8 +501,8 @@ const HomePage = () => {
                 </div>
 
               </div>
-              <h4 className="text-xl font-bold text-[#1a1a1a]">Real-Time Threat Analysis</h4>
-              <p className="text-gray-500 mt-2 leading-relaxed">Our AI system continuously monitors and analyzes emerging scam tactics globally, instantly adapting our simulations to protect you against tomorrow's threats today.</p>
+              <h4 className="text-xl font-bold text-[#1a1a1a]">{t('home.protection.visual.title')}</h4>
+              <p className="text-gray-500 mt-2 leading-relaxed">{t('home.protection.visual.description')}</p>
             </div>
           </motion.div>
         </div>

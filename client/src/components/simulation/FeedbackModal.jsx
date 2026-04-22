@@ -30,7 +30,7 @@ const FeedbackModal = ({ choice, onNext, isLastScenario }) => {
             <XCircle className="w-7 h-7 text-red-400 flex-shrink-0" />
           )}
           <h3 className={`text-lg font-bold ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
-            {isCorrect ? 'Correct Decision!' : 'Risky Decision!'}
+            {isCorrect ? t('simulation.correctDecision') : t('simulation.riskyDecision')}
           </h3>
         </div>
 
@@ -43,10 +43,10 @@ const FeedbackModal = ({ choice, onNext, isLastScenario }) => {
         <div className="flex items-start gap-2 p-3 rounded-xl bg-primary-800/50 border border-primary-600/20 mb-6">
           <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
           <p className="text-xs text-gray-400">
-            <span className="text-warning font-semibold">Remember:</span>{' '}
+            <span className="text-warning font-semibold">{t('simulation.remember')}</span>{' '}
             {isCorrect
-              ? 'Always stay vigilant. Cybercriminals constantly evolve their tactics.'
-              : 'In a real situation, this choice could lead to financial loss, identity theft, or emotional harm.'}
+              ? t('simulation.alwaysVigilant')
+              : t('simulation.realSituationConsequence')}
           </p>
         </div>
 
@@ -56,7 +56,7 @@ const FeedbackModal = ({ choice, onNext, isLastScenario }) => {
           onClick={onNext}
           className="w-full sm:w-auto"
         >
-          {isLastScenario ? 'View Results' : 'Next Scenario →'}
+          {isLastScenario ? t('simulation.viewResults') : t('simulation.nextScenario')}
         </Button>
       </div>
     </div>
