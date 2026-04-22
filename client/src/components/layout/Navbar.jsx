@@ -120,7 +120,7 @@ const Navbar = () => {
             
             <button 
               className="px-4 py-3 bg-gray-50 rounded-xl outline-none text-left flex items-center justify-between"
-              onClick={() => { setIsIsOpen(false); setIsLangOpen(true); }}
+              onClick={() => { setIsOpen(false); setIsLangOpen(true); }}
             >
               <span>{t('nav.language') || 'Language'}</span>
               <span className="font-bold">{i18n.language.toUpperCase()}</span>

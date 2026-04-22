@@ -1,17 +1,3 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-let genAI = null;
-try {
-  if (process.env.GEMINI_API_KEY) {
-    console.log("✅ GEMINI_API_KEY detected. Initializing AI...");
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  } else {
-    console.warn("⚠️  GEMINI_API_KEY not found in environment variables.");
-  }
-} catch (error) {
-  console.warn("❌ GoogleGenerativeAI initialization failed:", error.message);
-}
-
 const SYSTEM_PROMPT_FACT = `You are a cybersecurity expert. Provide exactly ONE short, engaging, and highly informative fact about cybersecurity, digital hygiene, or internet threats.
 IMPORTANT RULES:
 - The fact MUST be strictly in the requested language.
@@ -47,53 +33,192 @@ IMPORTANT RULES:
   ]
 }`;
 
+const sanitizeJsonText = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return '';
+  return rawText.replace(/^```json\s*|\s*```$/g, '').trim();
+};
+
+const parseModelJson = (rawText) => {
+  const text = sanitizeJsonText(rawText);
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  const candidate = start !== -1 && end !== -1 ? text.slice(start, end + 1) : text;
+  return JSON.parse(candidate);
+};
+
+const getTargetLanguage = (lang) => {
+  const langNames = {
+    ru: 'Russian',
+    en: 'English',
+    kz: 'Kazakh',
+  };
+  return langNames[lang] || 'English';
+};
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+const getFallbackScenario = (lang) => {
+  const scenarios = {
+    ru: {
+      title: 'Срочное обновление системы',
+      description:
+        'Во время работы над важным проектом вы получаете всплывающее окно с просьбой срочно установить обновление безопасности. Окно выглядит почти как системное, но вы не уверены, откуда оно появилось.',
+      category: 'Device Security',
+      icon: '🛡️',
+      choices: [
+        {
+          id: 'A',
+          text: 'Закрыть окно, открыть настройки обновлений вручную и проверить источник уведомления.',
+          isCorrect: true,
+          feedback: 'Это безопаснее: вы сами проверяете обновление через системные настройки.',
+        },
+        {
+          id: 'B',
+          text: 'Нажать кнопку в окне и согласиться на установку, чтобы не тратить время.',
+          isCorrect: false,
+          feedback: 'Это рискованно: окно может быть поддельным и установить вредоносное ПО.',
+        },
+        {
+          id: 'C',
+          text: 'Игнорировать предупреждение и продолжить работу, не проверяя ничего.',
+          isCorrect: false,
+          feedback: 'Это плохой вариант: уязвимости останутся неисправленными.',
+        },
+      ],
+    },
+    kz: {
+      title: 'Жүйе жаңартуы',
+      description:
+        'Маңызды жобамен жұмыс істеп отырғанда, қауіпсіздік жаңартуын орнатуды сұрайтын қалқымалы терезе пайда болады. Ол жүйелік хабарламаға ұқсайды, бірақ қайдан шыққаны белгісіз.',
+      category: 'Device Security',
+      icon: '🛡️',
+      choices: [
+        {
+          id: 'A',
+          text: 'Терезені жауып, жаңартуды баптаулар арқылы қолмен тексеру.',
+          isCorrect: true,
+          feedback: 'Бұл қауіпсіз: жаңартуды өзіңіз жүйелік баптаулардан тексересіз.',
+        },
+        {
+          id: 'B',
+          text: 'Уақыт жоғалтпау үшін терезедегі батырманы басып, орнатуға келісу.',
+          isCorrect: false,
+          feedback: 'Бұл қауіпті: терезе жалған болуы және зиянды бағдарлама орнатуы мүмкін.',
+        },
+        {
+          id: 'C',
+          text: 'Ескертуді елемей, тек жұмыс істей беру.',
+          isCorrect: false,
+          feedback: 'Бұл жаман таңдау: осалдықтар түзетілмей қалады.',
+        },
+      ],
+    },
+    en: {
+      title: 'Urgent System Update',
+      description:
+        'While working on an important project, a popup asks you to install a security update immediately. It looks nearly system-generated, but you are not sure where it came from.',
+      category: 'Device Security',
+      icon: '🛡️',
+      choices: [
+        {
+          id: 'A',
+          text: 'Close the popup, open update settings manually, and verify the source.',
+          isCorrect: true,
+          feedback: 'This is safer because you verify the update through system settings.',
+        },
+        {
+          id: 'B',
+          text: 'Click the popup button and install right away to save time.',
+          isCorrect: false,
+          feedback: 'This is risky: the popup could be fake and install malware.',
+        },
+        {
+          id: 'C',
+          text: 'Ignore the warning and keep working without checking anything.',
+          isCorrect: false,
+          feedback: 'This is a bad option because vulnerabilities remain unpatched.',
+        },
+      ],
+    },
+  };
+
+  return {
+    ...scenarios[lang] || scenarios.en,
+    id: Date.now().toString(),
+  };
+};
+
+const callOpenRouterApi = async ({ systemPrompt, userPrompt }) => {
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  if (!openRouterApiKey) {
+    throw new Error('OPENROUTER_API_KEY is not configured');
+  }
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openRouterApiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
+      'X-Title': 'Sana Cybersecurity Platform',
+    },
+    body: JSON.stringify({
+      model: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter request failed: ${response.status} ${errorText}`);
+  }
+
+  const payload = await response.json();
+  const rawContent = payload?.choices?.[0]?.message?.content || '';
+  return parseModelJson(rawContent);
+};
+
+const generateFactViaOpenRouterApi = async (targetLang) => {
+  return callOpenRouterApi({
+    systemPrompt: SYSTEM_PROMPT_FACT,
+    userPrompt: `Generate a cybersecurity fact in ${targetLang}. Focus on real-world data.`,
+  });
+};
+
+const generateScenarioViaOpenRouterApi = async (targetLang) => {
+  return callOpenRouterApi({
+    systemPrompt: SYSTEM_PROMPT_SCENARIO,
+    userPrompt: `Generate a scenario in ${targetLang}.`,
+  });
+};
+
 exports.generateFact = async (req, res) => {
   try {
     const lang = req.query.lang || 'en';
-    const langNames = {
-      ru: 'Russian',
-      en: 'English',
-      kz: 'Kazakh'
-    };
-    const targetLang = langNames[lang] || 'English';
-
-    if (!genAI) {
-      return res.status(503).json({ 
-        text: "AI service is currently unavailable. Please check the server configuration and configure GEMINI_API_KEY.",
-        category: "System",
-        severity: "critical"
-      });
+    const targetLang = getTargetLanguage(lang);
+    if (isDev) {
+      console.log(`[AI] Fact request started (provider=OpenRouter, lang=${lang}, model=${process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001'})`);
     }
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-flash-latest',
-      systemInstruction: SYSTEM_PROMPT_FACT,
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const result = await model.generateContent(`Generate a cybersecurity fact in ${targetLang}. Focus on real-world data.`);
-    const response = await result.response;
-    let text = response.text();
-    
-    // Sanitize response: remove markdown code blocks
-    text = text.replace(/^```json\s*|\s*```$/g, '').trim();
-    
-    try {
-      const factData = JSON.parse(text);
-      res.status(200).json(factData);
-    } catch (parseError) {
-      console.error("AI JSON Parse Error. Raw text:", text);
-      throw new Error("Parse failed");
+    const factData = await generateFactViaOpenRouterApi(targetLang);
+    if (isDev) {
+      console.log('[AI] Fact request succeeded (provider=OpenRouter)');
     }
+    res.status(200).json(factData);
   } catch (error) {
-    console.error("AI Fact Global Fallback Triggered:", error.message);
+    console.error('AI Fact OpenRouter Error:', error.message);
+    if (isDev) {
+      console.log('[AI] Fact fallback returned');
+    }
     res.status(200).json({
-      text: "Cybersecurity is a shared responsibility. Always keep your software updated to protect against known vulnerabilities.",
-      category: "General",
-      severity: "medium",
-      source: "Sana Security Lab"
+      text: 'Cybersecurity is a shared responsibility. Always keep your software updated to protect against known vulnerabilities.',
+      category: 'General',
+      severity: 'medium',
+      source: 'Sana Security Lab',
     });
   }
 };
@@ -101,44 +226,22 @@ exports.generateFact = async (req, res) => {
 exports.generateScenario = async (req, res) => {
   try {
     const lang = req.query.lang || 'en';
-    const langNames = {
-      ru: 'Russian',
-      en: 'English',
-      kz: 'Kazakh'
-    };
-    const targetLang = langNames[lang] || 'English';
-
-    if (!genAI) {
-      return res.status(503).json({ 
-        message: "AI service is currently unavailable. Please check GEMINI_API_KEY."
-      });
+    const targetLang = getTargetLanguage(lang);
+    if (isDev) {
+      console.log(`[AI] Scenario request started (provider=OpenRouter, lang=${lang}, model=${process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001'})`);
     }
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-flash-latest',
-      systemInstruction: SYSTEM_PROMPT_SCENARIO,
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const result = await model.generateContent(`Generate a scenario in ${targetLang}.`);
-    const response = await result.response;
-    let text = response.text();
-    
-    // Sanitize response: remove markdown code blocks if present
-    text = text.replace(/^```json\s*|\s*```$/g, '').trim();
-
-    const scenarioData = JSON.parse(text);
+    const scenarioData = await generateScenarioViaOpenRouterApi(targetLang);
     // Add unique ID
     scenarioData.id = Date.now().toString();
+    if (isDev) {
+      console.log('[AI] Scenario request succeeded (provider=OpenRouter)');
+    }
     res.status(200).json(scenarioData);
   } catch (error) {
-    console.error("AI Scenario Generation Error:", error);
-    res.status(500).json({ 
-      message: "Failed to generate scenario", 
-      error: error.message,
-      details: error.response?.data || null 
-    });
+    console.error('AI Scenario OpenRouter Error:', error.message);
+    if (isDev) {
+      console.log('[AI] Scenario fallback returned');
+    }
+    res.status(200).json(getFallbackScenario(req.query.lang || 'en'));
   }
 };

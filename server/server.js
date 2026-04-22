@@ -81,11 +81,24 @@ const startServer = async () => {
       console.log(`✅ Auto-seeded ${facts.length} cyber facts`);
     }
 
-    // Start listening
-    app.listen(PORT, () => {
+    // Start listening and handle port conflicts explicitly.
+    const server = app.listen(PORT, () => {
       console.log(`\n🚀 Sana API Server running on http://localhost:${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔀 Environment: ${process.env.NODE_ENV || 'development'}\n`);
+    });
+
+    server.on('error', (listenError) => {
+      if (listenError.code === 'EADDRINUSE') {
+        console.error(
+          `❌ Port ${PORT} is already in use. Another Sana server instance is likely running.`
+        );
+        console.error('🛑 Current process will exit gracefully to avoid nodemon crash loops.');
+        process.exit(0);
+      }
+
+      console.error('❌ Server listen error:', listenError.message);
+      process.exit(1);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);

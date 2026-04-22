@@ -43,6 +43,23 @@ const col3 = wallFacts.filter((_, i) => i % 4 === 2);
 const col4 = wallFacts.filter((_, i) => i % 4 === 3);
 const columns = [col1, col2, col3, col4];
 
+const pickLocalFact = () => wallFacts[Math.floor(Math.random() * wallFacts.length)];
+
+const normalizeFact = (fact) => ({
+  text: fact?.text || pickLocalFact().text,
+  category: (fact?.category || 'general').toString().toLowerCase(),
+  severity: (fact?.severity || 'medium').toString().toLowerCase(),
+  source: fact?.source || 'Sana Research',
+});
+
+const isServerFallbackFact = (fact) =>
+  !fact ||
+  !fact.text ||
+  fact.category === 'System' ||
+  fact.source === 'Sana Security Lab';
+
+const guaranteedLocalFact = () => normalizeFact(pickLocalFact());
+
 // ─── Helpers ──────────────────────────────────────────────────────────
 const getIcon = (cat) => {
   switch (cat?.toLowerCase()) {
@@ -129,6 +146,42 @@ const CyberFact = () => {
   const [hasTriggered, setHasTriggered] = useState(false);
   const [cooldown, setCooldown] = useState(false);
 
+  const fetchBestFact = useCallback(async ({ skipAi = false } = {}) => {
+    // 1) Try AI endpoint first unless explicitly skipped
+    if (!skipAi) {
+      try {
+        const aiData = await api.get(`/ai/fact?lang=${i18n.language}`);
+        if (!isServerFallbackFact(aiData)) {
+          return normalizeFact(aiData);
+        }
+      } catch {
+        // Ignore and continue with fallbacks.
+      }
+    }
+
+    // 2) Try DB-backed random fact
+    try {
+      const randomResponse = await api.get('/facts/random');
+      const randomFact = randomResponse?.data || randomResponse;
+      if (randomFact?.text) {
+        return normalizeFact(randomFact);
+      }
+    } catch {
+      // Ignore and continue with local fallback.
+    }
+
+    // 3) Final local fallback
+    return guaranteedLocalFact();
+  }, [i18n.language]);
+
+  const fetchBestFactSafe = useCallback(async (options = {}) => {
+    try {
+      return await fetchBestFact(options);
+    } catch {
+      return guaranteedLocalFact();
+    }
+  }, [fetchBestFact]);
+
   // Start rush when the section becomes visible
   useEffect(() => {
     if (isInView && !hasTriggered) {
@@ -144,45 +197,60 @@ const CyberFact = () => {
   useEffect(() => {
     if (phase === 'rush' && bgState === 'idle') {
       setBgState('loading');
-      
-      // Safety timeout: if AI is too slow, use fallback after 4s
-      const safetyTimer = setTimeout(() => {
-        if (bgState === 'loading') {
-          setAiFact(wallFacts[Math.floor(Math.random() * wallFacts.length)]);
-          setBgState('ready');
-        }
+
+      let settled = false;
+
+      // Safety timeout: if external AI stalls, still reveal a fact quickly.
+      const safetyTimer = setTimeout(async () => {
+        if (settled) return;
+        settled = true;
+        const fallbackFact = await fetchBestFactSafe({ skipAi: true });
+        setAiFact(fallbackFact);
+        setBgState('ready');
       }, 4000);
 
-      api.get(`/ai/fact?lang=${i18n.language}`)
-        .then(data => {
-          if (data && data.text) {
-            setAiFact(data);
-            setBgState('ready');
-          } else throw new Error('Invalid');
-        })
-        .catch(() => {
-          setAiFact(wallFacts[Math.floor(Math.random() * wallFacts.length)]);
-          setBgState('ready');
-        })
-        .finally(() => clearTimeout(safetyTimer));
+      (async () => {
+        const fact = await fetchBestFactSafe();
+        if (settled) return;
+        settled = true;
+        clearTimeout(safetyTimer);
+        setAiFact(fact);
+        setBgState('ready');
+      })();
+
+      return () => {
+        settled = true;
+        clearTimeout(safetyTimer);
+      };
     }
-  }, [phase, bgState, i18n.language]);
+  }, [phase, bgState, fetchBestFactSafe]);
 
   // Generate AI fact (button click)
   const generateFact = useCallback(async () => {
     if (cooldown) return;
     setCooldown(true);
     setPhase('loading');
-    try {
-      const data = await api.get(`/ai/fact?lang=${i18n.language}`);
-      if (data && data.text) setAiFact(data);
-      else throw new Error('Invalid');
-    } catch {
-      setAiFact(wallFacts[Math.floor(Math.random() * wallFacts.length)]);
-    }
+    const fact = await fetchBestFactSafe();
+    setAiFact(fact);
+    setBgState('ready');
     setPhase('fact');
     setTimeout(() => setCooldown(false), 3000);
-  }, [i18n.language, cooldown]);
+  }, [fetchBestFactSafe, cooldown]);
+
+  // Last-resort guard: never stay on loading forever.
+  useEffect(() => {
+    if (phase !== 'loading') return;
+
+    const timer = setTimeout(() => {
+      if (!aiFact) {
+        setAiFact(guaranteedLocalFact());
+      }
+      setBgState('ready');
+      setPhase('fact');
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [phase, aiFact]);
 
   // Replay
   const replay = useCallback(() => {
@@ -231,6 +299,32 @@ const CyberFact = () => {
                 ))}
               </div>
               <p className="text-sm font-semibold text-[#1a1a1a]">Generating cyber fact…</p>
+            </motion.div>
+          )}
+
+          {/* Loading state after train animation */}
+          {phase === 'loading' && (
+            <motion.div
+              key="loading-bg"
+              className="flex flex-col items-center gap-4 px-6 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="flex gap-2">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-2.5 h-2.5 bg-[#1a1a1a] rounded-full"
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.12, ease: 'easeInOut' }}
+                  />
+                ))}
+              </div>
+              <p className="text-base font-semibold text-[#1a1a1a]">Preparing your cyber fact...</p>
+              <p className="text-xs text-gray-500 max-w-sm">
+                If AI is busy, Sana will instantly use verified database facts.
+              </p>
             </motion.div>
           )}
 
