@@ -114,15 +114,22 @@ const HomePage = () => {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-                          className="w-full px-6 flex flex-col items-center"
+                          className="w-full px-6 flex flex-col items-center gap-3"
                         >
+                           {/* Pulsing warning dot */}
+                           <motion.div 
+                             animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                             transition={{ duration: 1, repeat: Infinity }}
+                             className="w-3 h-3 rounded-full bg-yellow-400 mb-1"
+                             style={{ boxShadow: '0 0 12px rgba(250,204,21,0.6)' }}
+                           />
                            <div className="bg-gray-100 rounded-2xl rounded-tl-none p-4 w-full shadow-sm relative overflow-hidden flex items-center">
-                              <div className="w-6 h-6 bg-green-500 rounded-full mr-3 shrink-0 flex items-center justify-center text-white text-[10px] font-bold">$$</div>
+                              <div className="w-7 h-7 bg-gradient-to-br from-green-400 to-green-600 rounded-full mr-3 shrink-0 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">$$</div>
                               <motion.div 
                                 initial={{ width: "0%" }}
                                 animate={{ width: "100%" }}
                                 transition={{ duration: 2, ease: "linear" }}
-                                className="overflow-hidden whitespace-nowrap border-r-2 border-blue-500 text-sm font-medium text-gray-700"
+                                className="overflow-hidden whitespace-nowrap border-r-2 border-red-400 text-sm font-medium text-gray-700"
                               >
                                 You won $10,000! Click here...
                               </motion.div>
@@ -135,9 +142,18 @@ const HomePage = () => {
                           animate={{ opacity: 1, scale: 1, rotate: 0, filter: 'blur(0px)' }}
                           exit={{ opacity: 0, scale: 0 }}
                           transition={{ duration: 0.6, type: "spring", bounce: 0.5 }}
-                          className="w-24 h-24 bg-red-500 rounded-[2rem] flex items-center justify-center shadow-[0_0_40px_rgba(239,68,68,0.5)]"
+                          className="relative"
                         >
-                           <Bug className="w-12 h-12 text-white" />
+                          {/* Red glow ring */}
+                          <motion.div
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="absolute inset-[-16px] rounded-[2.5rem] border-2 border-red-400/40"
+                          />
+                          <div className="w-24 h-24 bg-gradient-to-br from-red-500 to-red-600 rounded-[2rem] flex items-center justify-center"
+                            style={{ boxShadow: '0 0 50px rgba(239,68,68,0.4), 0 10px 30px rgba(239,68,68,0.3)' }}>
+                             <Bug className="w-12 h-12 text-white" />
+                          </div>
                         </motion.div>
                       ) : (
                          <div className="w-24 h-24 bg-red-50 rounded-[2rem] flex items-center justify-center opacity-50">
@@ -161,35 +177,53 @@ const HomePage = () => {
                   className="absolute inset-0 bg-[#1a1a1a] shadow-2xl rounded-[2.5rem] flex items-center justify-center border border-gray-800 cursor-pointer overflow-hidden"
                   onClick={() => setActiveCard(1)}
                 >
-                  {/* Orbiting tools - only animate if active */}
+                  {/* Glowing ring behind logo */}
+                  {activeCard === 1 && (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+                      className="absolute w-40 h-40 rounded-full pointer-events-none"
+                      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                    />
+                  )}
+                  {activeCard === 1 && (
+                    <motion.div
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.05, 0.15, 0.05] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                      className="absolute w-48 h-48 rounded-full bg-white/5 blur-xl pointer-events-none"
+                    />
+                  )}
+
+                  {/* Orbiting tools - improved paths */}
                   {activeCard === 1 && [
-                    { Icon: Shield, delay: 0 },
-                    { Icon: Lock, delay: 1.5 },
-                    { Icon: Activity, delay: 3 }
+                    { Icon: Shield, delay: 0, size: 160, dur: 6, color: 'text-emerald-400' },
+                    { Icon: Lock, delay: 0, size: 120, dur: 8, color: 'text-blue-400' },
+                    { Icon: Activity, delay: 0, size: 200, dur: 10, color: 'text-purple-400' }
                   ].map((item, i) => (
                     <motion.div
                       key={i}
-                      animate={{ 
-                        rotate: [0, 360],
-                      }}
-                      transition={{ duration: 8, repeat: Infinity, ease: "linear", delay: item.delay }}
-                      className="absolute w-full h-full flex items-center justify-center pointer-events-none"
+                      animate={{ rotate: i % 2 === 0 ? 360 : -360 }}
+                      transition={{ duration: item.dur, repeat: Infinity, ease: 'linear' }}
+                      className="absolute pointer-events-none"
+                      style={{ width: item.size, height: item.size }}
                     >
-                      <motion.div 
-                        animate={{ scale: [0, 1, 0], opacity: [0, 1, 0] }}
-                        transition={{ duration: 3, repeat: Infinity, delay: item.delay }}
-                        className="absolute -top-4 bg-gray-800 p-2 rounded-xl border border-gray-700"
+                      <motion.div
+                        animate={{ scale: [0.7, 1, 0.7], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.3 }}
+                        className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-xl border border-gray-700/50"
+                        style={{ boxShadow: '0 0 12px rgba(255,255,255,0.05)' }}
                       >
-                        <item.Icon className="w-5 h-5 text-accent-cyan" />
+                        <item.Icon className={`w-4 h-4 ${item.color}`} />
                       </motion.div>
                     </motion.div>
                   ))}
                   
-                  {/* Main Logo (Custom Square Hole Logo) */}
+                  {/* Main Logo */}
                   <motion.div 
-                    animate={activeCard === 1 ? { scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(26,26,26,0)", "0 0 40px rgba(26,26,26,0.3)", "0 0 0px rgba(26,26,26,0)"] } : {}}
+                    animate={activeCard === 1 ? { scale: [1, 1.05, 1] } : {}}
                     transition={{ duration: 3, repeat: Infinity }}
-                    className="w-28 h-28 bg-[#1a1a1a] rounded-[2rem] flex items-center justify-center relative z-10 shadow-2xl"
+                    className="w-28 h-28 bg-[#1a1a1a] rounded-[2rem] flex items-center justify-center relative z-10"
+                    style={{ boxShadow: activeCard === 1 ? '0 0 40px rgba(255,255,255,0.08), 0 20px 40px rgba(0,0,0,0.4)' : '0 20px 40px rgba(0,0,0,0.3)' }}
                   >
                     <div className="w-10 h-10 bg-[#fafafa] rounded-lg" />
                   </motion.div>
@@ -375,76 +409,95 @@ const HomePage = () => {
               <div className="w-full h-[320px] bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.05)] border border-gray-100 mb-8 flex items-center justify-center overflow-hidden relative">
                 
                 {/* Polished Motion Design Layer */}
-                <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-[#0f172a] rounded-[2rem]">
-                  {/* Grid Background */}
-                  <motion.div 
-                    animate={{ backgroundPosition: ['0px 0px', '40px 40px'] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-                    className="absolute inset-0 opacity-20 bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:40px_40px]"
-                  />
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-[#0a0f1a] rounded-[2rem]">
+                  {/* Hex grid background */}
+                  <div className="absolute inset-0 opacity-[0.07]" style={{
+                    backgroundImage: `radial-gradient(circle, rgba(16,185,129,0.8) 1px, transparent 1px)`,
+                    backgroundSize: '28px 28px',
+                  }} />
 
-                  {/* Stable 3D Scanning Rings */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ perspective: '800px' }}>
-                    <motion.div 
-                      animate={{ rotateZ: 360 }}
-                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                      className="w-48 h-48 border-[2px] border-emerald-500/40 rounded-full"
-                      style={{ transform: 'rotateX(60deg)' }}
+                  {/* Pulsing concentric rings */}
+                  {[80, 130, 190].map((size, i) => (
+                    <motion.div key={i}
+                      animate={{ scale: [1, 1.08, 1], opacity: [0.15, 0.3, 0.15] }}
+                      transition={{ duration: 3, repeat: Infinity, delay: i * 0.5, ease: 'easeInOut' }}
+                      className="absolute rounded-full border border-emerald-500/25"
+                      style={{ width: size, height: size }}
                     />
-                    <motion.div 
-                      animate={{ rotateZ: -360 }}
-                      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                      className="absolute w-64 h-64 border border-emerald-400/20 rounded-full border-dashed"
-                      style={{ transform: 'rotateX(60deg)' }}
+                  ))}
+
+                  {/* 3D tilted scanning ring */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ perspective: '600px' }}>
+                    <motion.div animate={{ rotateZ: 360 }}
+                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                      className="w-44 h-44 rounded-full"
+                      style={{ transform: 'rotateX(65deg)', border: '2px solid rgba(16,185,129,0.35)', boxShadow: '0 0 20px rgba(16,185,129,0.15)' }}
                     />
                   </div>
 
+                  {/* Orbiting data nodes */}
+                  {[0, 1, 2, 3].map(i => (
+                    <motion.div key={`node-${i}`}
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 6 + i * 2, repeat: Infinity, ease: 'linear' }}
+                      className="absolute flex items-center justify-center pointer-events-none"
+                      style={{ width: 120 + i * 40, height: 120 + i * 40 }}
+                    >
+                      <motion.div
+                        animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.4, 1, 0.4] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: i * 0.4 }}
+                        className="absolute -top-1 w-2.5 h-2.5 rounded-full bg-emerald-400"
+                        style={{ boxShadow: '0 0 8px rgba(16,185,129,0.8)' }}
+                      />
+                    </motion.div>
+                  ))}
+
                   {/* Core Shield Logo */}
                   <motion.div 
-                    animate={{ scale: [1, 1.05, 1], filter: ['drop-shadow(0 0 10px rgba(16,185,129,0.3))', 'drop-shadow(0 0 20px rgba(16,185,129,0.6))', 'drop-shadow(0 0 10px rgba(16,185,129,0.3))'] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                    className="w-16 h-16 bg-[#1a1a1a] rounded-2xl flex items-center justify-center relative z-20 shadow-2xl border border-gray-800"
+                    animate={{ scale: [1, 1.06, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                    className="w-16 h-16 bg-[#1a1a1a] rounded-2xl flex items-center justify-center relative z-20 border border-emerald-500/30"
+                    style={{ boxShadow: '0 0 30px rgba(16,185,129,0.25), 0 0 60px rgba(16,185,129,0.1)' }}
                   >
                     <div className="w-6 h-6 bg-white rounded-md" />
                   </motion.div>
 
-                  {/* Cyclical Threat Destruction */}
+                  {/* Threat detection + neutralization */}
                   {[
-                    { id: 1, startX: -120, startY: -40, endX: -40, endY: -10, delay: 0 },
-                    { id: 2, startX: 120, startY: 60, endX: 40, endY: 20, delay: 1.5 },
-                    { id: 3, startX: -60, startY: 100, endX: -20, endY: 40, delay: 3 },
-                  ].map(threat => (
-                    <motion.div 
-                      key={threat.id}
-                      initial={{ opacity: 0, x: threat.startX, y: threat.startY, scale: 0.5 }}
+                    { id: 1, startX: -140, startY: -50, delay: 0 },
+                    { id: 2, startX: 130, startY: 70, delay: 1.8 },
+                    { id: 3, startX: -70, startY: 110, delay: 3.5 },
+                    { id: 4, startX: 100, startY: -80, delay: 5 },
+                  ].map(t => (
+                    <motion.div key={t.id}
                       animate={{ 
-                        opacity: [0, 1, 1, 0], 
-                        x: [threat.startX, threat.endX, threat.endX, threat.endX],
-                        y: [threat.startY, threat.endY, threat.endY, threat.endY],
-                        scale: [0.5, 1, 1.5, 0]
+                        opacity: [0, 1, 1, 0],
+                        x: [t.startX, t.startX * 0.3, 0, 0],
+                        y: [t.startY, t.startY * 0.3, 0, 0],
+                        scale: [0.6, 1, 1.8, 0],
                       }}
-                      transition={{ duration: 4, repeat: Infinity, delay: threat.delay, ease: "easeInOut" }}
-                      className="absolute z-10 flex items-center justify-center"
+                      transition={{ duration: 4.5, repeat: Infinity, delay: t.delay, ease: 'easeInOut' }}
+                      className="absolute z-10"
                     >
-                      <div className="relative">
-                        <Bug className="w-5 h-5 text-red-500 relative z-10" />
-                        {/* Explosion effect */}
-                        <motion.div 
-                          animate={{ opacity: [0, 0, 1, 0], scale: [0.5, 0.5, 2, 3] }}
-                          transition={{ duration: 4, repeat: Infinity, delay: threat.delay }}
-                          className="absolute inset-0 bg-red-500 rounded-full blur-sm"
-                        />
-                      </div>
+                      <Bug className="w-4 h-4 text-red-400 relative z-10" />
+                      <motion.div
+                        animate={{ opacity: [0, 0, 0.8, 0], scale: [0.5, 0.5, 2.5, 4] }}
+                        transition={{ duration: 4.5, repeat: Infinity, delay: t.delay }}
+                        className="absolute inset-[-4px] bg-red-500/60 rounded-full blur-md"
+                      />
                     </motion.div>
                   ))}
 
-                  {/* Radar Scanning Beam */}
+                  {/* Radar sweep */}
                   <motion.div 
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-                    className="absolute w-[200%] h-[200%] opacity-20 origin-center pointer-events-none"
-                    style={{ background: 'conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(16,185,129,0.8) 360deg)' }}
+                    transition={{ duration: 3.5, repeat: Infinity, ease: 'linear' }}
+                    className="absolute w-[250%] h-[250%] origin-center pointer-events-none"
+                    style={{ background: 'conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(16,185,129,0.4) 345deg, rgba(16,185,129,0) 360deg)' }}
                   />
+
+                  {/* Ambient glow */}
+                  <div className="absolute w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
                 </div>
 
               </div>

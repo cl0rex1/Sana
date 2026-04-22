@@ -18,7 +18,7 @@ import { AuthProvider } from './context/AuthContext';
 const App = () => {
   return (
     <AuthProvider>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<Layout />}>

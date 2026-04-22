@@ -1,11 +1,12 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
-// Load environment variables early
-dotenv.config();
+// Load environment variables early from root directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Route imports
 const factRoutes = require('./routes/factRoutes');
