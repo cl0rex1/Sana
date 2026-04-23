@@ -1,4 +1,38 @@
+const mongoose = require('mongoose');
 const Article = require('../models/Article');
+
+const buildArticlePipeline = (match = {}) => [
+  { $match: match },
+  { $sort: { createdAt: -1 } },
+  {
+    $lookup: {
+      from: 'users',
+      localField: 'author',
+      foreignField: '_id',
+      as: 'author',
+    },
+  },
+  {
+    $unwind: {
+      path: '$author',
+      preserveNullAndEmptyArrays: true,
+    },
+  },
+  {
+    $lookup: {
+      from: 'scenarios',
+      localField: 'practiceScenario',
+      foreignField: '_id',
+      as: 'practiceScenario',
+    },
+  },
+  {
+    $unwind: {
+      path: '$practiceScenario',
+      preserveNullAndEmptyArrays: true,
+    },
+  },
+];
 
 // @desc    Get all articles
 // @route   GET /api/articles
@@ -16,10 +50,7 @@ exports.getArticles = async (req, res) => {
       query.category = category;
     }
 
-    const articles = await Article.find(query)
-      .sort({ createdAt: -1 })
-      .populate('author', 'username')
-      .populate('practiceScenario', 'title icon');
+    const articles = await Article.aggregate(buildArticlePipeline(query));
 
 
     res.status(200).json({
@@ -33,14 +64,37 @@ exports.getArticles = async (req, res) => {
   }
 };
 
+// @desc    Get all articles for admin
+// @route   GET /api/articles/admin
+// @access  Private/Admin
+exports.getAdminArticles = async (req, res) => {
+  try {
+    const articles = await Article.aggregate(buildArticlePipeline());
+
+    res.status(200).json({
+      success: true,
+      count: articles.length,
+      data: articles,
+    });
+  } catch (error) {
+    console.error('Get admin articles error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // @desc    Get single article
 // @route   GET /api/articles/:id
 // @access  Public
 exports.getArticle = async (req, res) => {
   try {
-    const article = await Article.findById(req.params.id)
-      .populate('author', 'username')
-      .populate('practiceScenario');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Article not found' });
+    }
+
+    const [article] = await Article.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(req.params.id) } },
+      ...buildArticlePipeline().slice(1),
+    ]);
 
     if (!article) {
       return res.status(404).json({ success: false, message: 'Article not found' });
@@ -93,6 +147,10 @@ exports.createArticle = async (req, res) => {
 // @access  Private/Admin
 exports.updateArticle = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Article not found' });
+    }
+
     let article = await Article.findById(req.params.id);
 
     if (!article) {
@@ -119,6 +177,10 @@ exports.updateArticle = async (req, res) => {
 // @access  Private/Admin
 exports.deleteArticle = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Article not found' });
+    }
+
     const article = await Article.findById(req.params.id);
 
     if (!article) {

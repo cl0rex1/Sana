@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AreaChart,
   Area,
@@ -51,10 +52,12 @@ const PIE_COLORS = ['#00f0ff', '#8b5cf6', '#ef4444', '#f59e0b', '#10b981'];
  * and PieChart for incident distribution.
  */
 const StatsChart = ({ data, breakdown }) => {
+  const { t } = useTranslation();
+
   if (!data || data.length === 0) {
     return (
       <Card className="flex items-center justify-center h-64">
-        <p className="text-gray-500">No data available for the selected range</p>
+        <p className="text-gray-500">{t('dashboard.noChartData', 'No data available for the selected range')}</p>
       </Card>
     );
   }
@@ -65,7 +68,7 @@ const StatsChart = ({ data, breakdown }) => {
       <Card>
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-accent-blue" />
-          Incident Trends Over Time
+          {t('dashboard.trends')}
         </h3>
         <ResponsiveContainer width="100%" height={320}>
           <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -135,7 +138,7 @@ const StatsChart = ({ data, breakdown }) => {
         <Card>
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-accent-purple" />
-            Monthly Breakdown
+            {t('dashboard.breakdown')}
           </h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.slice(-12)} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -163,7 +166,7 @@ const StatsChart = ({ data, breakdown }) => {
         <Card>
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
             <PieChartIcon className="w-4 h-4 text-accent-cyan" />
-            Threat Distribution
+            {t('dashboard.distribution')}
           </h3>
           {breakdown && breakdown.length > 0 ? (
             <div className="flex flex-col items-center">
@@ -201,7 +204,7 @@ const StatsChart = ({ data, breakdown }) => {
               </div>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-10">No breakdown data</p>
+            <p className="text-gray-500 text-center py-10">{t('dashboard.noBreakdownData', 'No breakdown data')}</p>
           )}
         </Card>
       </div>

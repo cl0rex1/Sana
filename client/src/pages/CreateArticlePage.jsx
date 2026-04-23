@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +27,7 @@ const CreateArticlePage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [scenarios, setScenarios] = useState([]);
+  const contentRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -73,6 +74,41 @@ const CreateArticlePage = () => {
     if (formData.points.length > 1) {
       setFormData({ ...formData, points: formData.points.filter((_, i) => i !== index) });
     }
+  };
+
+  const wrapSelection = (prefix, suffix = prefix, fallbackText = '') => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = formData.content.slice(start, end) || fallbackText;
+    const nextValue = `${formData.content.slice(0, start)}${prefix}${selectedText}${suffix}${formData.content.slice(end)}`;
+
+    setFormData((prev) => ({ ...prev, content: nextValue }));
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, start + prefix.length + selectedText.length);
+    });
+  };
+
+  const insertList = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = formData.content.slice(start, end) || 'Item 1\nItem 2';
+    const listItems = selectedText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `  <li>${line}</li>`)
+      .join('\n');
+
+    const nextValue = `${formData.content.slice(0, start)}<ul>\n${listItems}\n</ul>${formData.content.slice(end)}`;
+    setFormData((prev) => ({ ...prev, content: nextValue }));
   };
 
   const handleSubmit = async (e) => {
@@ -129,7 +165,7 @@ const CreateArticlePage = () => {
                     className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. How to recognize WhatsApp scams"
+                    placeholder={t('articles.titlePlaceholder', 'e.g. How to recognize WhatsApp scams')}
                   />
                 </div>
 
@@ -144,12 +180,12 @@ const CreateArticlePage = () => {
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     >
-                      <option value="phishing">Phishing</option>
-                      <option value="standard">Passwords</option>
-                      <option value="device">Device</option>
-                      <option value="social">Social</option>
-                      <option value="network">Network</option>
-                      <option value="general">General</option>
+                      <option value="phishing">{t('articles.categoryOptions.phishing', 'Phishing')}</option>
+                      <option value="standard">{t('articles.categoryOptions.standard', 'Passwords')}</option>
+                      <option value="device">{t('articles.categoryOptions.device', 'Device')}</option>
+                      <option value="social">{t('articles.categoryOptions.social', 'Social')}</option>
+                      <option value="network">{t('articles.categoryOptions.network', 'Network')}</option>
+                      <option value="general">{t('articles.categoryOptions.general', 'General')}</option>
                     </select>
                   </div>
                   <div>
@@ -178,7 +214,7 @@ const CreateArticlePage = () => {
                     className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                     value={formData.tag}
                     onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
-                    placeholder="e.g. Banking, WhatsApp, 2FA"
+                      placeholder={t('articles.tagPlaceholder', 'e.g. Banking, WhatsApp, 2FA')}
                   />
                 </div>
               </div>
@@ -195,7 +231,7 @@ const CreateArticlePage = () => {
                     value={formData.practiceScenario}
                     onChange={(e) => setFormData({ ...formData, practiceScenario: e.target.value })}
                   >
-                    <option value="">No Practice Linked</option>
+                    <option value="">{t('articles.noPracticeLinked', 'No Practice Linked')}</option>
                     {scenarios.map((sc) => (
                       <option key={sc._id} value={sc._id}>{sc.icon} {sc.title}</option>
                     ))}
@@ -215,7 +251,7 @@ const CreateArticlePage = () => {
                           className="flex-1 p-3 rounded-xl bg-gray-50 border border-gray-100 focus:bg-white transition-all outline-none text-sm"
                           value={p}
                           onChange={(e) => updatePoint(i, e.target.value)}
-                          placeholder={`Point ${i+1}`}
+                          placeholder={t('articles.pointPlaceholder', 'Point {{number}}', { number: i + 1 })}
                         />
                         {formData.points.length > 1 && (
                           <button 
@@ -234,7 +270,7 @@ const CreateArticlePage = () => {
                         onClick={addPoint}
                         className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors py-1"
                       >
-                        <Plus className="w-4 h-4" /> Add Point
+                        <Plus className="w-4 h-4" /> {t('articles.addPoint', 'Add Point')}
                       </button>
                     )}
                   </div>
@@ -253,7 +289,7 @@ const CreateArticlePage = () => {
                 className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="A brief summary for the preview card..."
+                placeholder={t('articles.descriptionPlaceholder', 'A brief summary for the preview card...')}
               />
             </div>
 
@@ -262,23 +298,38 @@ const CreateArticlePage = () => {
                 <Type className="w-4 h-4 text-blue-500" />
                 {t('articles.contentLabel', 'Article Content (HTML Supported)')}
               </label>
+              <div className="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl border border-gray-100 bg-gray-50">
+                <span className="text-[11px] uppercase tracking-[0.25em] text-gray-400 font-semibold mr-2">
+                  {t('articles.formattingLabel', 'Formatting')}
+                </span>
+                <button type="button" onClick={() => wrapSelection('<strong>', '</strong>', 'bold text')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">B</button>
+                <button type="button" onClick={() => wrapSelection('<em>', '</em>', 'italic text')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">I</button>
+                <button type="button" onClick={() => wrapSelection('<h2>', '</h2>', 'Section title')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">H2</button>
+                <button type="button" onClick={() => wrapSelection('<code>', '</code>', 'code')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">{`</>`}</button>
+                <button type="button" onClick={insertList} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">UL</button>
+                <button type="button" onClick={() => wrapSelection('<a href="https://example.com">', '</a>', 'link text')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">Link</button>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-3">
+                {t('articles.formattingHint', 'Select text and use the buttons to insert HTML formatting.')}
+              </p>
               <textarea
                 required
                 rows={12}
+                ref={contentRef}
                 className="w-full p-6 rounded-[2rem] bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-mono text-sm leading-relaxed"
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="<h3>Important Rules</h3><p>Always check the sender...</p>"
+                placeholder={t('articles.contentPlaceholder', '<h3>Important Rules</h3><p>Always check the sender...</p>')}
               />
             </div>
 
-            <div className="flex justify-center pt-4">
+            <div className="pt-4">
               <Button 
                 type="submit" 
                 variant="primary" 
                 size="lg" 
                 loading={loading}
-                className="px-12 py-4 rounded-2xl text-lg shadow-xl shadow-blue-200 bg-blue-600 hover:bg-blue-700 transition-all" 
+                className="w-full py-4 rounded-[1.5rem] text-xl shadow-xl shadow-blue-100" 
                 icon={Send}
               >
                 {user?.role === 'admin' ? t('articles.publish', 'Publish Article') : t('articles.submit', 'Submit for Moderation')}

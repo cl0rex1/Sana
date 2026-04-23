@@ -1,10 +1,13 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Date range filter with dual slider for the statistics dashboard.
  * Controls the visible time window (2024-2026).
  */
 const DateFilter = ({ fromIndex, toIndex, maxIndex, onChange, labels }) => {
+  const { t } = useTranslation();
+
   const handleFromChange = (e) => {
     const val = parseInt(e.target.value);
     if (val <= toIndex) {
@@ -23,7 +26,7 @@ const DateFilter = ({ fromIndex, toIndex, maxIndex, onChange, labels }) => {
     <div className="glass-card p-5 rounded-2xl">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-          Date Range Filter
+          {t('dashboard.rangeFilter', 'Date Range Filter')}
         </h3>
         <span className="text-xs font-mono text-accent-cyan">
           {labels[fromIndex]} — {labels[toIndex]}
@@ -33,7 +36,7 @@ const DateFilter = ({ fromIndex, toIndex, maxIndex, onChange, labels }) => {
       {/* From slider */}
       <div className="space-y-4">
         <div>
-          <label className="block text-xs text-gray-500 mb-2">From: {labels[fromIndex]}</label>
+          <label className="block text-xs text-gray-500 mb-2">{t('dashboard.from', 'From')}: {labels[fromIndex]}</label>
           <input
             type="range"
             min={0}
@@ -51,7 +54,7 @@ const DateFilter = ({ fromIndex, toIndex, maxIndex, onChange, labels }) => {
 
         {/* To slider */}
         <div>
-          <label className="block text-xs text-gray-500 mb-2">To: {labels[toIndex]}</label>
+          <label className="block text-xs text-gray-500 mb-2">{t('dashboard.to', 'To')}: {labels[toIndex]}</label>
           <input
             type="range"
             min={0}
@@ -70,9 +73,9 @@ const DateFilter = ({ fromIndex, toIndex, maxIndex, onChange, labels }) => {
 
       {/* Range visualization */}
       <div className="mt-4 flex justify-between text-[10px] text-gray-600">
-        <span>Jan 2024</span>
-        <span>Jan 2025</span>
-        <span>Dec 2026</span>
+        <span>{t('dashboard.rangeStart', 'Jan 2024')}</span>
+        <span>{t('dashboard.rangeMiddle', 'Jan 2025')}</span>
+        <span>{t('dashboard.rangeEnd', 'Dec 2026')}</span>
       </div>
     </div>
   );

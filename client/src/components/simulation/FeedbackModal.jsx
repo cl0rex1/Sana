@@ -53,7 +53,7 @@ const FeedbackModal = ({ choice, onNext, isLastScenario }) => {
           {/* Feedback explanation */}
           <div className="bg-gray-50/80 rounded-2xl p-6 mb-6 border border-gray-100">
             <p className="text-gray-700 leading-relaxed font-medium">
-              {choice.feedback}
+              {choice.feedback || t('simulation.noFeedback', 'No additional explanation was provided.')}
             </p>
           </div>
 

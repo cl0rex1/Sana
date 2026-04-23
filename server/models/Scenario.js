@@ -4,7 +4,7 @@ const choiceSchema = new mongoose.Schema({
   id: { type: String, required: true },
   text: { type: String, required: true },
   isCorrect: { type: Boolean, required: true },
-  feedback: { type: String, required: true }
+  feedback: { type: String, default: '' }
 });
 
 const scenarioSchema = new mongoose.Schema({

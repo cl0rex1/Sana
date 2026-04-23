@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Plus, Trash2, Edit2, Check, X, BookOpen, PlayCircle, ExternalLink } from 'lucide-react';
 import api from '../../utils/api';
 import Card from '../ui/Card';
@@ -36,7 +37,7 @@ const AdminArticlesSection = () => {
     try {
       setLoading(true);
       const [artRes, scRes] = await Promise.all([
-        api.get('/articles'),
+        api.get('/articles/admin'),
         api.get('/scenarios/approved')
       ]);
       setArticles(artRes.data || []);
@@ -59,7 +60,7 @@ const AdminArticlesSection = () => {
       icon: article.icon,
       language: article.language,
       practiceScenario: article.practiceScenario?._id || '',
-      points: article.points.length > 0 ? article.points : ['', '', '']
+      points: article.points?.length > 0 ? article.points : ['', '', '']
     });
     setIsEditing(true);
   };
@@ -138,8 +139,6 @@ const AdminArticlesSection = () => {
               <Button variant="ghost" onClick={() => setIsEditing(false)} icon={X}>Cancel</Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
             {/* Form Tabs */}
             <div className="flex bg-gray-50 p-1 rounded-2xl mb-8 w-fit">
               {[

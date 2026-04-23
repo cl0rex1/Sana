@@ -30,8 +30,8 @@ const validateScenarioDraft = (draft) => {
   }
 
   const correctChoices = draft.choices.filter((choice) => choice?.isCorrect === true).length;
-  if (correctChoices !== 1) {
-    return { valid: false, reason: 'Must have exactly one correct choice' };
+  if (correctChoices < 1) {
+    return { valid: false, reason: 'Must have at least one correct choice' };
   }
 
   const allText = `${draft.title} ${draft.description} ${draft.choices.map(c => (c?.text || '') + ' ' + (c?.feedback || '')).join(' ')}`;
@@ -39,8 +39,8 @@ const validateScenarioDraft = (draft) => {
     return { valid: false, reason: 'Profanity or inappropriate content detected locally.' };
   }
 
-  const complete = draft.choices.every((choice) => choice?.text && choice?.feedback);
-  if (!complete) return { valid: false, reason: 'Choices missing text or feedback' };
+  const complete = draft.choices.every((choice) => choice?.text);
+  if (!complete) return { valid: false, reason: 'Choices missing text' };
 
   return { valid: true };
 };
@@ -78,7 +78,7 @@ CRITICAL SECURITY RULES (ANTI-PROMPT PROTECTION):
 
 CONTENT CRITERIA:
 1. Subject: Must be related to cybersecurity, digital safety, privacy, or tech ethics.
-2. Structure: Exactly 3 choices, exactly ONE isCorrect: true.
+2. Structure: Exactly 3 choices, at least ONE isCorrect: true.
 3. Safety: No profanity, offensive language, or harmful content.
 4. Logic: Must be a coherent educational situation.
 

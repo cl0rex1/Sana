@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play } from 'lucide-react';
+import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -31,6 +31,8 @@ const LEARNING_TRACKS = [
 const createBlankQuestion = () => ({
   title: '',
   description: '',
+  sharedFeedback: '',
+  feedbackMode: 'detailed',
   icon: '🛡️',
   category: 'General',
   choices: [
@@ -45,29 +47,55 @@ const sampleRandom = (list, count) => {
   return shuffled.slice(0, count);
 };
 
+const SIMULATION_SESSION_KEY = 'sana_simulation_session_v1';
+
+const loadSimulationSession = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = localStorage.getItem(SIMULATION_SESSION_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    return parsed?.version === 1 ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const formatElapsedTime = (seconds) => {
+  const total = Math.max(0, seconds || 0);
+  const minutes = Math.floor(total / 60);
+  const remainingSeconds = total % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
 /**
  * Main Simulation Hub & Runner.
  * Manages intro menu (lists, AI/Random buttons), playing logic, results, and test creation.
  */
 const LifeScenario = () => {
+  const initialSession = loadSimulationSession();
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const { user } = useAuth() || { user: null };
   const AI_TEST_COUNT = 5;
-  const [gameState, setGameState] = useState('hub'); // hub | creating | loading | playing | feedback | results
-  const [testMode, setTestMode] = useState(null); // 'ai', 'random', 'learning', 'specific'
-  const [selectedTestType, setSelectedTestType] = useState('mixed');
+  const [gameState, setGameState] = useState(initialSession?.gameState || 'hub'); // hub | creating | loading | playing | feedback | results
+  const [testMode, setTestMode] = useState(initialSession?.testMode || null); // 'ai', 'random', 'learning', 'specific'
+  const [selectedTestType, setSelectedTestType] = useState(initialSession?.selectedTestType || 'mixed');
   const [isLearningOpen, setIsLearningOpen] = useState(false);
   const [approvedTests, setApprovedTests] = useState([]);
-  const [scenarioError, setScenarioError] = useState('');
+  const [scenarioError, setScenarioError] = useState(initialSession?.scenarioError || '');
   
   // Game running state
-  const [runPipeline, setRunPipeline] = useState([]);
+  const [runPipeline, setRunPipeline] = useState(initialSession?.runPipeline || []);
   const [hasAutoStartedFromQuery, setHasAutoStartedFromQuery] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentScenario, setCurrentScenario] = useState(null);
-  const [selectedChoice, setSelectedChoice] = useState(null);
-  const [results, setResults] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(initialSession?.currentIndex || 0);
+  const [currentScenario, setCurrentScenario] = useState(initialSession?.currentScenario || null);
+  const [selectedChoice, setSelectedChoice] = useState(initialSession?.selectedChoice || null);
+  const [results, setResults] = useState(initialSession?.results || []);
+  const [timerStartedAt, setTimerStartedAt] = useState(initialSession?.timerStartedAt || null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(initialSession?.elapsedSeconds || 0);
   
   // Create Test Form state
   const [createForm, setCreateForm] = useState({
@@ -75,6 +103,78 @@ const LifeScenario = () => {
     questions: [createBlankQuestion()],
   });
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+
+  const pushNotification = useCallback((type, message) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setNotifications((prev) => [...prev, { id, type, message }]);
+    window.setTimeout(() => {
+      setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+    }, 3500);
+  }, []);
+
+  const notificationStack = (
+    <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 w-[min(24rem,calc(100vw-2.5rem))] pointer-events-none">
+      <AnimatePresence>
+        {notifications.map((notification) => (
+          <motion.div
+            key={notification.id}
+            initial={{ opacity: 0, x: 24, y: -8 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, x: 24, y: -8 }}
+            className={`pointer-events-auto rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-md ${
+              notification.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : notification.type === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-800'
+                  : 'border-blue-200 bg-blue-50 text-blue-800'
+            }`}
+          >
+            <div className="text-sm font-semibold leading-relaxed">{notification.message}</div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+
+  useEffect(() => {
+    if (!timerStartedAt || !['playing', 'feedback'].includes(gameState)) {
+      return undefined;
+    }
+
+    const tick = () => setElapsedSeconds(Math.floor((Date.now() - timerStartedAt) / 1000));
+    tick();
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [gameState, timerStartedAt]);
+
+  useEffect(() => {
+    if (gameState === 'hub' || (!currentScenario && runPipeline.length === 0 && results.length === 0)) {
+      localStorage.removeItem(SIMULATION_SESSION_KEY);
+      return;
+    }
+
+    if (!['playing', 'feedback', 'results'].includes(gameState)) {
+      return;
+    }
+
+    const sessionPayload = {
+      version: 1,
+      gameState,
+      testMode,
+      selectedTestType,
+      currentIndex,
+      currentScenario,
+      runPipeline,
+      selectedChoice,
+      results,
+      scenarioError,
+      timerStartedAt,
+      elapsedSeconds,
+    };
+
+    localStorage.setItem(SIMULATION_SESSION_KEY, JSON.stringify(sessionPayload));
+  }, [currentIndex, currentScenario, elapsedSeconds, gameState, results, runPipeline, scenarioError, selectedChoice, selectedTestType, testMode, timerStartedAt]);
 
 
   const correctCount = results.filter((r) => r.isCorrect).length;
@@ -154,6 +254,8 @@ const LifeScenario = () => {
     setResults([]);
     setSelectedChoice(null);
     setScenarioError('');
+    setTimerStartedAt(Date.now());
+    setElapsedSeconds(0);
     setRunPipeline(targetScenarios || []);
     setGameState('loading');
 
@@ -330,6 +432,7 @@ const LifeScenario = () => {
   }, [currentIndex, fetchNextScenario, runPipeline, testMode, user, results]);
 
   const restartGame = useCallback(() => {
+    localStorage.removeItem(SIMULATION_SESSION_KEY);
     setGameState('hub');
     setTestMode(null);
     setCurrentIndex(0);
@@ -338,7 +441,17 @@ const LifeScenario = () => {
     setResults([]);
     setRunPipeline([]);
     setScenarioError('');
+    setTimerStartedAt(null);
+    setElapsedSeconds(0);
   }, []);
+
+  const updateQuestionFeedbackMode = (questionIndex, mode) => {
+    setCreateForm((prev) => {
+      const questions = [...prev.questions];
+      questions[questionIndex] = { ...questions[questionIndex], feedbackMode: mode };
+      return { ...prev, questions };
+    });
+  };
 
   const updateQuestion = (questionIndex, field, value) => {
     setCreateForm((prev) => {
@@ -353,6 +466,19 @@ const LifeScenario = () => {
       const questions = [...prev.questions];
       const choices = [...questions[questionIndex].choices];
       choices[choiceIndex] = { ...choices[choiceIndex], [field]: value };
+      questions[questionIndex] = { ...questions[questionIndex], choices };
+      return { ...prev, questions };
+    });
+  };
+
+  const toggleQuestionChoiceCorrect = (questionIndex, choiceIndex) => {
+    setCreateForm((prev) => {
+      const questions = [...prev.questions];
+      const choices = [...questions[questionIndex].choices];
+      choices[choiceIndex] = {
+        ...choices[choiceIndex],
+        isCorrect: !choices[choiceIndex].isCorrect,
+      };
       questions[questionIndex] = { ...questions[questionIndex], choices };
       return { ...prev, questions };
     });
@@ -378,6 +504,30 @@ const LifeScenario = () => {
   const submitNewTest = async (e) => {
     e.preventDefault();
     try {
+      if (createForm.questions.length > 20) {
+        pushNotification('error', t('simulation.questionsTooMany', 'You can submit up to 20 questions in one test.'));
+        return;
+      }
+
+      const invalidQuestion = createForm.questions.find((question) => {
+        const hasSharedFeedback = question.sharedFeedback?.trim().length > 0;
+        const allChoiceFeedbackFilled = question.choices.every((choice) => choice.feedback?.trim().length > 0);
+
+        if (!question.choices.some((choice) => choice.isCorrect)) {
+          return true;
+        }
+
+        if (question.feedbackMode === 'shared') {
+          return !hasSharedFeedback;
+        }
+
+        return !hasSharedFeedback && !allChoiceFeedbackFilled;
+      });
+      if (invalidQuestion) {
+        pushNotification('error', t('simulation.needFeedback', 'Either shared feedback or feedback for each option is required.'));
+        return;
+      }
+
       setGameState('loading');
       const payload = {
         testType: createForm.testType,
@@ -388,13 +538,14 @@ const LifeScenario = () => {
           choices: question.choices.map((choice, i) => ({
             ...choice,
             id: String.fromCharCode(65 + i),
+            feedback: choice.feedback?.trim() || question.sharedFeedback?.trim() || '',
           })),
         })),
       };
 
       const result = await api.post('/scenarios/submit-batch', payload);
       const created = result?.meta?.created || payload.questions.length;
-      alert(`${t('simulation.testSubmitted') || 'Test submitted for moderation'} (${created})`);
+      pushNotification('success', `${t('simulation.testSubmitted') || 'Test submitted for moderation'} (${created})`);
       setCreateForm({
         testType: 'mixed',
         questions: [createBlankQuestion()],
@@ -402,7 +553,7 @@ const LifeScenario = () => {
       setGameState('hub');
     } catch (err) {
       console.error(err);
-      alert(t('simulation.submitFailed') || 'Failed to submit test');
+      pushNotification('error', t('simulation.submitFailed') || 'Failed to submit test');
       setGameState('creating');
     }
   };
@@ -410,6 +561,8 @@ const LifeScenario = () => {
   // ==================== HUB SCREEN ====================
   if (gameState === 'hub') {
     return (
+      <>
+      {notificationStack}
       <motion.div 
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
         className="max-w-5xl mx-auto space-y-8"
@@ -533,12 +686,15 @@ const LifeScenario = () => {
           </div>
         </div>
       </motion.div>
+      </>
     );
   }
 
   // ==================== CREATING SCREEN ====================
   if (gameState === 'creating') {
     return (
+      <>
+      {notificationStack}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto p-8 bg-white rounded-[3rem] border border-gray-200 shadow-sm">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-[#1a1a1a]">{t('simulation.createScenario')}</h2>
@@ -559,6 +715,10 @@ const LifeScenario = () => {
                 <option key={type.value} value={type.value}>{getTypeLabel(type.value)}</option>
               ))}
             </select>
+            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+              <span>{t('simulation.questionsCounter', { count: createForm.questions.length })}</span>
+              <span>{t('simulation.questionsLimitHint')}</span>
+            </div>
           </div>
 
           <div className="flex flex-col space-y-6">
@@ -574,18 +734,18 @@ const LifeScenario = () => {
                   {idx + 1}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() => {
-                  if (createForm.questions.length < 20) {
+              {createForm.questions.length < 20 && (
+                <button
+                  type="button"
+                  onClick={() => {
                     addQuestion();
                     setActiveQuestionIndex(createForm.questions.length);
-                  }
-                }}
-                className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:border-blue-300 hover:text-blue-500 flex items-center justify-center transition-all"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+                  }}
+                  className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:border-blue-300 hover:text-blue-500 flex items-center justify-center transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             {/* Active Question Form */}
@@ -604,7 +764,7 @@ const LifeScenario = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Title</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">{t('simulation.titleLabel', 'Title')}</label>
                   <input
                     required
                     type="text"
@@ -616,7 +776,7 @@ const LifeScenario = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Scenario Description</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">{t('simulation.descriptionLabel', 'Scenario Description')}</label>
                   <textarea
                     required
                     rows={3}
@@ -627,17 +787,69 @@ const LifeScenario = () => {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                    {t('simulation.sharedFeedbackLabel', 'Shared feedback')}
+                    <span className={createForm.questions[activeQuestionIndex].feedbackMode === 'shared' ? 'text-red-500 ml-1' : 'text-gray-400 ml-1'}>
+                      ({createForm.questions[activeQuestionIndex].feedbackMode === 'shared' ? t('simulation.required', 'required') : t('simulation.optional', 'optional')})
+                    </span>
+                  </label>
+                  <textarea
+                    required={createForm.questions[activeQuestionIndex].feedbackMode === 'shared'}
+                    rows={2}
+                    className="w-full p-4 rounded-2xl bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                    value={createForm.questions[activeQuestionIndex].sharedFeedback}
+                    onChange={(e) => updateQuestion(activeQuestionIndex, 'sharedFeedback', e.target.value)}
+                    placeholder={t('simulation.sharedFeedbackPlaceholder', 'Optional explanation shown when a specific choice does not have its own feedback.')}
+                  />
+                </div>
+
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Choices & Feedback</label>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <label className="block text-xs font-bold text-gray-400 uppercase">{t('simulation.choicesLabel', 'Choices & Feedback')}</label>
+                    <div className="flex bg-gray-100/80 p-1 rounded-2xl border border-gray-200 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => updateQuestionFeedbackMode(activeQuestionIndex, 'detailed')}
+                        className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          createForm.questions[activeQuestionIndex].feedbackMode === 'detailed'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('simulation.feedbackModeDetailed', 'Per-option')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateQuestionFeedbackMode(activeQuestionIndex, 'shared')}
+                        className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          createForm.questions[activeQuestionIndex].feedbackMode === 'shared'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('simulation.feedbackModeShared', 'Shared')}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400 -mt-1">
+                    {createForm.questions[activeQuestionIndex].feedbackMode === 'shared'
+                      ? t('simulation.sharedModeHint', 'Per-option explanations are hidden in this mode.')
+                      : t('simulation.detailedModeHint', 'Fill shared feedback or explain each option below.')}
+                  </p>
                   {createForm.questions[activeQuestionIndex].choices.map((choice, i) => (
-                    <div key={i} className={`p-5 rounded-2xl border ${i === 0 ? 'border-emerald-200 bg-white/50' : 'border-gray-100 bg-white/50'} space-y-3 shadow-sm`}>
+                    <div key={i} className={`p-5 rounded-2xl border space-y-3 shadow-sm ${choice.isCorrect ? 'border-emerald-200 bg-emerald-50/40' : 'border-gray-100 bg-white/50'}`}>
                       <div className="flex items-center gap-2">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${choice.isCorrect ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
                           {String.fromCharCode(65 + i)}
                         </div>
-                        <span className={`font-bold text-sm ${i === 0 ? 'text-emerald-700' : 'text-gray-600'}`}>
-                          {i === 0 ? t('simulation.correct') : t('simulation.incorrect')}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleQuestionChoiceCorrect(activeQuestionIndex, i)}
+                          className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${choice.isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          {choice.isCorrect ? t('simulation.markedCorrect', 'Correct answer') : t('simulation.markCorrect', 'Mark as correct')}
+                        </button>
                       </div>
                       <input
                         required
@@ -648,13 +860,17 @@ const LifeScenario = () => {
                         onChange={(e) => updateQuestionChoice(activeQuestionIndex, i, 'text', e.target.value)}
                       />
                       <input
-                        required
                         type="text"
                         placeholder={t('simulation.feedbackPlaceholder')}
-                        className="w-full p-3 rounded-xl border border-gray-100 bg-white focus:ring-2 focus:ring-blue-400 outline-none text-sm italic"
+                        className={`w-full p-3 rounded-xl border border-gray-100 bg-white focus:ring-2 focus:ring-blue-400 outline-none text-sm italic ${createForm.questions[activeQuestionIndex].feedbackMode === 'shared' ? 'hidden' : ''}`}
                         value={choice.feedback}
                         onChange={(e) => updateQuestionChoice(activeQuestionIndex, i, 'feedback', e.target.value)}
                       />
+                      {createForm.questions[activeQuestionIndex].feedbackMode !== 'shared' && (
+                        <p className="text-[11px] text-gray-400">
+                          {t('simulation.feedbackOptionalHint', 'Optional. Leave blank to use the shared feedback above.')}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -665,6 +881,7 @@ const LifeScenario = () => {
 
         </form>
       </motion.div>
+      </>
     );
   }
 
@@ -795,11 +1012,18 @@ const LifeScenario = () => {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <ProgressBar
-          value={gameState === 'feedback' ? currentIndex + 1 : currentIndex}
-          max={totalCount}
-          label={t('simulation.progress')}
-        />
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <ProgressBar
+            value={gameState === 'feedback' ? currentIndex + 1 : currentIndex}
+            max={totalCount}
+            label={t('simulation.progress')}
+            className="flex-1"
+          />
+          <div className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-200 bg-white shadow-sm text-sm font-mono text-gray-700">
+            <Clock className="w-4 h-4 text-blue-500" />
+            <span>{formatElapsedTime(elapsedSeconds)}</span>
+          </div>
+        </div>
       </motion.div>
 
       <AnimatePresence mode="wait">
