@@ -10,6 +10,11 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import ArticlesPage from './pages/ArticlesPage';
+import ArticleDetailsPage from './pages/ArticleDetailsPage';
+import AdminPage from './pages/AdminPage';
+import CreateArticlePage from './pages/CreateArticlePage';
+
+
 import { AuthProvider } from './context/AuthContext';
 
 /**
@@ -26,10 +31,15 @@ const App = () => {
             <Route index element={<HomePage />} />
             <Route path="simulation" element={<SimulationPage />} />
             <Route path="learn" element={<ArticlesPage />} />
+            <Route path="learn/:id" element={<ArticleDetailsPage />} />
+            <Route path="learn/create" element={<CreateArticlePage />} />
+
+
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="admin" element={<AdminPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

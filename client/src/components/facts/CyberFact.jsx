@@ -213,7 +213,8 @@ const CyberFact = () => {
       const timer = setTimeout(() => {
         setHasTriggered(true);
         setPhase('rush');
-      }, 5000);
+      }, 1000);
+
       return () => clearTimeout(timer);
     }
   }, [isInView, hasTriggered]);
@@ -298,7 +299,8 @@ const CyberFact = () => {
     }
   }, [phase, bgState, aiFact]);
 
-  const trainFacts = [...wallFacts, ...wallFacts.slice(0, 2)];
+  const trainFacts = [...wallFacts, ...wallFacts, ...wallFacts];
+
 
   return (
     <div
@@ -441,8 +443,9 @@ const CyberFact = () => {
                 <motion.div
                   className="absolute top-0 h-full flex items-stretch gap-8 py-4"
                   initial={{ left: '110%' }}
-                    animate={{ left: '-11000px' }}
-                    transition={{ duration: 6.8, ease: [0.08, 0.0, 0.2, 1] }}
+                    animate={{ left: '-25000px' }}
+                    transition={{ duration: 9, ease: [0.08, 0.0, 0.2, 1] }}
+
                   onAnimationComplete={handleTrainEnd}
                 >
                   {trainFacts.map((fact, i) => (
@@ -477,43 +480,7 @@ const CyberFact = () => {
               </div>
             </motion.div>
 
-            {/* Vignette Layer — Now overflowing BEYOND the card boundaries */}
-            <motion.div
-              className="absolute z-30 pointer-events-none"
-              style={{ top: 0, bottom: 0, left: '-20vw', right: '-20vw' }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 1, 1, 0] }}
-              transition={{ 
-                times: [0, 0.1, 0.6, 0.9], 
-                duration: 4.5,
-                ease: "easeInOut"
-              }}
-            >
-              <div 
-                className="absolute inset-0"
-                style={{
-                  background: 'linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.8) 8%, transparent 20%)',
-                }}
-              />
-              {/* Sana branding — moved outside the card boundaries */}
-              <div className="absolute left-[7vw] top-1/2 -translate-y-1/2 flex flex-col items-start gap-4">
-                <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-2xl">
-                  <div className="w-6 h-6 bg-white rounded-[5px]" />
-                </div>
-                <div>
-                  <p className="text-white text-3xl font-bold tracking-tight">Sana</p>
-                  <p className="text-white/50 text-xs font-medium mt-1.5 max-w-[180px] leading-relaxed">
-                    Cyber awareness<br />powered by AI
-                  </p>
-                </div>
-                <motion.div
-                  className="w-12 h-[2px] bg-white/20 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: 48 }}
-                  transition={{ delay: 0.8, duration: 0.5 }}
-                />
-              </div>
-            </motion.div>
+
           </>
         )}
       </AnimatePresence>

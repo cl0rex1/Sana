@@ -94,7 +94,7 @@ Discover shocking cybersecurity facts about Kazakhstan and CIS:
 ### Architecture
 ```
 Client (React + Vite)          Server (Express)          Database (MongoDB)
-     :5173                          :5000
+  :5173                          :5001
        │                              │                        │
        ├── Pages                      ├── Routes               ├── CyberFacts
        ├── Components                 ├── Controllers           ├── QuizResults
@@ -151,15 +151,17 @@ cd sana
 
 ### 2. Setup Environment
 ```bash
-cp .env.example server/.env
+cp .env.example .env
 ```
 
-Edit `server/.env` and set your MongoDB connection string:
+Edit `.env` and set your MongoDB connection string:
 ```env
 MONGO_URI=mongodb://localhost:27017/sana
-PORT=5000
+PORT=5001
 CLIENT_URL=http://localhost:5173
 ```
+
+If you prefer another API port, also set `VITE_API_TARGET` for the client (example: `http://localhost:5001`).
 
 ### 3. Install Dependencies
 ```bash
@@ -183,7 +185,7 @@ cd client
 npm run dev
 ```
 
-The frontend will be available at **http://localhost:5173** and the API at **http://localhost:5000**.
+The frontend will be available at **http://localhost:5173** and the API at **http://localhost:5001**.
 
 ### 5. Seed the Database (Optional)
 The server auto-seeds cyber facts on first startup. To manually seed or reset:

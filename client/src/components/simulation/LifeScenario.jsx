@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import api from '../../utils/api';
 import scenariosFallback from '../../data/scenarios';
 import ScenarioCard from './ScenarioCard';
@@ -12,21 +13,57 @@ import ProgressBar from '../ui/ProgressBar';
 import Badge from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 
+const TEST_TYPES = [
+  { value: 'mixed', label: 'Mixed' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'phishing', label: 'Phishing' },
+  { value: 'social', label: 'Social Engineering' },
+  { value: 'device', label: 'Device Security' },
+  { value: 'learning', label: 'Learning' },
+];
+
+const LEARNING_TRACKS = [
+  { type: 'phishing', icon: '📧' },
+  { type: 'social', icon: '🧠' },
+  { type: 'device', icon: '📱' },
+];
+
+const createBlankQuestion = () => ({
+  title: '',
+  description: '',
+  icon: '🛡️',
+  category: 'General',
+  choices: [
+    { text: '', isCorrect: true, feedback: '' },
+    { text: '', isCorrect: false, feedback: '' },
+    { text: '', isCorrect: false, feedback: '' },
+  ],
+});
+
+const sampleRandom = (list, count) => {
+  const shuffled = [...list].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+};
+
 /**
  * Main Simulation Hub & Runner.
  * Manages intro menu (lists, AI/Random buttons), playing logic, results, and test creation.
  */
 const LifeScenario = () => {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
   const { user } = useAuth() || { user: null };
   const AI_TEST_COUNT = 5;
   const [gameState, setGameState] = useState('hub'); // hub | creating | loading | playing | feedback | results
-  const [testMode, setTestMode] = useState(null); // 'ai', 'random', 'specific'
+  const [testMode, setTestMode] = useState(null); // 'ai', 'random', 'learning', 'specific'
+  const [selectedTestType, setSelectedTestType] = useState('mixed');
+  const [isLearningOpen, setIsLearningOpen] = useState(false);
   const [approvedTests, setApprovedTests] = useState([]);
   const [scenarioError, setScenarioError] = useState('');
   
   // Game running state
   const [runPipeline, setRunPipeline] = useState([]);
+  const [hasAutoStartedFromQuery, setHasAutoStartedFromQuery] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentScenario, setCurrentScenario] = useState(null);
   const [selectedChoice, setSelectedChoice] = useState(null);
@@ -34,25 +71,44 @@ const LifeScenario = () => {
   
   // Create Test Form state
   const [createForm, setCreateForm] = useState({
-    title: '', description: '',
-    choices: [
-      { text: '', isCorrect: true, feedback: '' },
-      { text: '', isCorrect: false, feedback: '' },
-      { text: '', isCorrect: false, feedback: '' }
-    ]
+    testType: 'mixed',
+    questions: [createBlankQuestion()],
   });
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+
 
   const correctCount = results.filter((r) => r.isCorrect).length;
+
+  const groupedTests = [];
+  const batchesSeen = new Set();
+  
+  approvedTests.forEach(test => {
+    if (test.batchId) {
+      if (!batchesSeen.has(test.batchId)) {
+        const batch = approvedTests.filter(t => t.batchId === test.batchId);
+        groupedTests.push({
+          ...test,
+          isBatch: true,
+          count: batch.length,
+          allTests: batch
+        });
+        batchesSeen.add(test.batchId);
+      }
+    } else {
+      groupedTests.push({ ...test, isBatch: false, count: 1, allTests: [test] });
+    }
+  });
+
 
   useEffect(() => {
     if (gameState === 'hub') {
       fetchApprovedTests();
     }
-  }, [gameState, i18n.language]);
+  }, [gameState, i18n.language, selectedTestType]);
 
   const fetchApprovedTests = async () => {
     try {
-      const res = await api.get(`/scenarios/approved?lang=${i18n.language}`);
+      const res = await api.get(`/scenarios/approved?lang=${i18n.language}&type=${selectedTestType}`);
       setApprovedTests(res.data || []);
     } catch (err) {
       console.error('Failed to load approved scenarios', err);
@@ -60,7 +116,7 @@ const LifeScenario = () => {
   };
 
   /** Start a specific set of tests or dynamic flow */
-  const fetchNextScenario = useCallback(async (idx, mode, pipeline) => {
+  const fetchNextScenario = useCallback(async (idx, mode, pipeline, testType = selectedTestType) => {
     setGameState('loading');
     try {
       let scenarioData = null;
@@ -68,7 +124,7 @@ const LifeScenario = () => {
         scenarioData = pipeline[idx];
       } else if (mode === 'ai' || (mode === 'random' && approvedTests.length === 0)) {
         // AI Generation or fallback if DB empty
-        const response = await api.get(`/ai/scenario?lang=${i18n.language}`);
+        const response = await api.get(`/ai/scenario?lang=${i18n.language}&type=${testType}`);
         scenarioData = response?.choices ? response : response?.data;
         if (!scenarioData?.choices) throw new Error("Invalid format");
       } else if (mode === 'random') {
@@ -89,9 +145,10 @@ const LifeScenario = () => {
       setCurrentScenario(scenariosFallback[idx % scenariosFallback.length]);
       setGameState('playing');
     }
-  }, [approvedTests, i18n.language, t]);
+  }, [approvedTests, i18n.language, selectedTestType, t]);
 
-  const startTest = useCallback(async (mode, targetScenarios = null) => {
+  const startTest = useCallback(async (mode, targetScenarios = null, forcedType = null, scenarioId = null) => {
+    const activeType = forcedType || selectedTestType;
     setTestMode(mode);
     setCurrentIndex(0);
     setResults([]);
@@ -100,9 +157,58 @@ const LifeScenario = () => {
     setRunPipeline(targetScenarios || []);
     setGameState('loading');
 
+    if (mode === 'specific' && scenarioId) {
+      try {
+        const res = await api.get(`/scenarios/${scenarioId}`);
+        const scenario = res.data;
+        if (!scenario) throw new Error("Scenario not found");
+        
+        if (scenario.batchId) {
+          const batchRes = await api.get(`/scenarios/approved?batchId=${scenario.batchId}`);
+          if (batchRes.data && batchRes.data.length > 0) {
+            setRunPipeline(batchRes.data);
+            await fetchNextScenario(0, 'specific', batchRes.data, batchRes.data[0].testType);
+            return;
+          }
+        }
+
+        setRunPipeline([scenario]);
+        await fetchNextScenario(0, 'specific', [scenario], scenario.testType);
+        return;
+      } catch (err) {
+        console.warn('Failed to load specific scenario:', err);
+        setScenarioError(t('simulation.loadError', 'Failed to load scenario.'));
+        setGameState('error');
+        return;
+      }
+    }
+
+
+    const handleBatchPlay = async (test) => {
+      if (test.batchId) {
+        try {
+          const res = await api.get(`/scenarios/approved?batchId=${test.batchId}`);
+          if (res.data && res.data.length > 0) {
+            setRunPipeline(res.data);
+            await fetchNextScenario(0, 'specific', res.data, res.data[0].testType);
+            return true;
+          }
+        } catch (err) {
+          console.error('Failed to load batch', err);
+        }
+      }
+      return false;
+    }
+
+    if (mode === 'specific' && targetScenarios && targetScenarios.length === 1) {
+      const wasBatch = await handleBatchPlay(targetScenarios[0]);
+      if (wasBatch) return;
+    }
+
+
     if (mode === 'ai') {
       try {
-        const batch = await api.get(`/ai/test?lang=${i18n.language}&count=${AI_TEST_COUNT}`, {
+        const batch = await api.get(`/ai/test?lang=${i18n.language}&count=${AI_TEST_COUNT}&type=${activeType}`, {
           timeout: 70000,
         });
         if (!Array.isArray(batch) || batch.length === 0) {
@@ -110,7 +216,7 @@ const LifeScenario = () => {
         }
 
         setRunPipeline(batch);
-        await fetchNextScenario(0, 'specific', batch);
+        await fetchNextScenario(0, 'specific', batch, activeType);
         return;
       } catch (err) {
         console.warn('AI test batch load failed:', err);
@@ -120,8 +226,62 @@ const LifeScenario = () => {
       }
     }
 
-    await fetchNextScenario(0, mode, targetScenarios);
-  }, [AI_TEST_COUNT, fetchNextScenario, i18n.language, t]);
+    if ((mode === 'random' || mode === 'learning') && (!targetScenarios || targetScenarios.length === 0)) {
+      let pool = approvedTests;
+      if (forcedType) {
+        const fetched = await api.get(`/scenarios/approved?lang=${i18n.language}&type=${activeType}`);
+        pool = fetched?.data || [];
+      }
+      if (pool.length > 0) {
+        const picked = sampleRandom(pool, Math.min(5, pool.length));
+        setRunPipeline(picked);
+        await fetchNextScenario(0, 'specific', picked, activeType);
+        return;
+      }
+
+      if (mode === 'learning') {
+        const fallbackPipeline = sampleRandom(scenariosFallback, Math.min(5, scenariosFallback.length));
+        setRunPipeline(fallbackPipeline);
+        await fetchNextScenario(0, 'specific', fallbackPipeline, activeType);
+        return;
+      }
+    }
+
+    await fetchNextScenario(0, mode, targetScenarios, activeType);
+  }, [AI_TEST_COUNT, approvedTests, fetchNextScenario, i18n.language, selectedTestType, t]);
+
+  useEffect(() => {
+    if (gameState !== 'hub' || hasAutoStartedFromQuery) return;
+
+    const params = new URLSearchParams(location.search);
+    const mode = params.get('mode');
+    const type = params.get('type');
+    const id = params.get('id');
+    if (!mode) return;
+
+    const allowedModes = new Set(['learning', 'ai', 'random', 'specific']);
+    if (!allowedModes.has(mode)) return;
+
+    setHasAutoStartedFromQuery(true);
+    if (type) {
+      setSelectedTestType(type);
+    }
+    startTest(mode, null, type || null, id);
+  }, [gameState, hasAutoStartedFromQuery, location.search, startTest]);
+
+
+  const getTypeLabel = useCallback((type) => {
+    const value = (type || 'mixed').toLowerCase();
+    const map = {
+      mixed: t('simulation.type.mixed', 'Mixed'),
+      standard: t('simulation.type.standard', 'Standard'),
+      phishing: t('simulation.type.phishing', 'Phishing'),
+      social: t('simulation.type.social', 'Social Engineering'),
+      device: t('simulation.type.device', 'Device Security'),
+      learning: t('simulation.type.learning', 'Learning'),
+    };
+    return map[value] || map.mixed;
+  }, [t]);
 
   const handleChoice = useCallback((choice) => {
     setSelectedChoice(choice);
@@ -140,7 +300,7 @@ const LifeScenario = () => {
 
   const handleNext = useCallback(async () => {
     setSelectedChoice(null);
-    const totalCount = runPipeline.length > 0 ? runPipeline.length : 5; // default to 5 for AI/Random
+    const totalCount = runPipeline.length > 0 ? runPipeline.length : 5;
     
     if (currentIndex < totalCount - 1) {
       const nextIdx = currentIndex + 1;
@@ -148,8 +308,26 @@ const LifeScenario = () => {
       await fetchNextScenario(nextIdx, testMode, runPipeline);
     } else {
       setGameState('results');
+      
+      // Save to history if user is logged in
+      if (user) {
+        try {
+          const correctCount = results.filter(r => r.isCorrect).length;
+          const scorePercentage = Math.round((correctCount / totalCount) * 100);
+          
+          await api.post('/history', {
+            testType: testMode || 'mixed',
+            score: scorePercentage,
+            totalQuestions: totalCount,
+            correctAnswers: correctCount
+          });
+          console.log('Test history saved');
+        } catch (err) {
+          console.error('Failed to save test history:', err);
+        }
+      }
     }
-  }, [currentIndex, fetchNextScenario, runPipeline, testMode]);
+  }, [currentIndex, fetchNextScenario, runPipeline, testMode, user, results]);
 
   const restartGame = useCallback(() => {
     setGameState('hub');
@@ -162,18 +340,65 @@ const LifeScenario = () => {
     setScenarioError('');
   }, []);
 
+  const updateQuestion = (questionIndex, field, value) => {
+    setCreateForm((prev) => {
+      const questions = [...prev.questions];
+      questions[questionIndex] = { ...questions[questionIndex], [field]: value };
+      return { ...prev, questions };
+    });
+  };
+
+  const updateQuestionChoice = (questionIndex, choiceIndex, field, value) => {
+    setCreateForm((prev) => {
+      const questions = [...prev.questions];
+      const choices = [...questions[questionIndex].choices];
+      choices[choiceIndex] = { ...choices[choiceIndex], [field]: value };
+      questions[questionIndex] = { ...questions[questionIndex], choices };
+      return { ...prev, questions };
+    });
+  };
+
+  const addQuestion = () => {
+    setCreateForm((prev) => {
+      if (prev.questions.length >= 20) return prev;
+      return { ...prev, questions: [...prev.questions, createBlankQuestion()] };
+    });
+  };
+
+  const removeQuestion = (index) => {
+    setCreateForm((prev) => {
+      if (prev.questions.length <= 1) return prev;
+      return {
+        ...prev,
+        questions: prev.questions.filter((_, i) => i !== index),
+      };
+    });
+  };
+
   const submitNewTest = async (e) => {
     e.preventDefault();
     try {
       setGameState('loading');
-      await api.post('/scenarios/submit', {
-        title: createForm.title,
-        description: createForm.description,
-        category: 'General',
-        choices: createForm.choices.map((c, i) => ({ ...c, id: String.fromCharCode(65 + i) })),
-        language: i18n.language
+      const payload = {
+        testType: createForm.testType,
+        language: i18n.language,
+        questions: createForm.questions.slice(0, 20).map((question) => ({
+          ...question,
+          testType: createForm.testType,
+          choices: question.choices.map((choice, i) => ({
+            ...choice,
+            id: String.fromCharCode(65 + i),
+          })),
+        })),
+      };
+
+      const result = await api.post('/scenarios/submit-batch', payload);
+      const created = result?.meta?.created || payload.questions.length;
+      alert(`${t('simulation.testSubmitted') || 'Test submitted for moderation'} (${created})`);
+      setCreateForm({
+        testType: 'mixed',
+        questions: [createBlankQuestion()],
       });
-      alert(t('simulation.testSubmitted') || 'Test submitted for AI moderation successfully!');
       setGameState('hub');
     } catch (err) {
       console.error(err);
@@ -200,6 +425,22 @@ const LifeScenario = () => {
             <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
               {t('simulation.hubSubtitle')}
             </p>
+
+            <div className="mb-8">
+              <p className="text-xs uppercase tracking-wide text-gray-400 mb-3">Test Type</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {TEST_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setSelectedTestType(type.value)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${selectedTestType === type.value ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             
             <div className="flex flex-wrap justify-center gap-4">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -212,29 +453,74 @@ const LifeScenario = () => {
                   {t('simulation.randomTest')}
                 </Button>
               </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button variant="ghost" size="lg" onClick={() => startTest('learning')} icon={BrainCircuit} className="shadow-sm bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                  {t('simulation.learningMode') || 'Learning Mode'}
+                </Button>
+              </motion.div>
               {user && (
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button variant="outline" size="lg" onClick={() => setGameState('creating')} icon={Plus} className="border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-600">
+                  <Button variant="outline" size="lg" onClick={() => { setGameState('creating'); setActiveQuestionIndex(0); }} icon={Plus} className="border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-600">
+
                     {t('simulation.createNewTest')}
                   </Button>
                 </motion.div>
               )}
             </div>
           </div>
+
+          <AnimatePresence>
+            {isLearningOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, y: -8, height: 0 }}
+                transition={{ duration: 0.25 }}
+                className="relative z-10 mt-6 bg-white/80 rounded-3xl border border-blue-100 p-6 text-left"
+              >
+                <h3 className="text-xl font-bold text-[#1a1a1a] mb-1">{t('simulation.learningTracksTitle', 'Learning Tracks')}</h3>
+                <p className="text-sm text-gray-600 mb-4">{t('simulation.learningTracksSubtitle', 'Pick a topic and run a focused short practice session.')}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {LEARNING_TRACKS.map((track) => (
+                    <button
+                      key={track.type}
+                      type="button"
+                      className="p-4 rounded-2xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+                      onClick={() => {
+                        setSelectedTestType(track.type);
+                        startTest('learning', null, track.type);
+                      }}
+                    >
+                      <div className="text-2xl mb-2">{track.icon}</div>
+                      <div className="font-semibold text-[#1a1a1a] mb-1">{getTypeLabel(track.type)}</div>
+                      <div className="text-xs text-blue-700 font-medium">{t('simulation.startTrack', 'Start Track')}</div>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div>
           <h2 className="text-2xl font-bold text-[#1a1a1a] mb-6 flex items-center"><Target className="w-6 h-6 mr-2 text-blue-500" /> {t('simulation.communityScenarios')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {approvedTests.length === 0 ? (
+            {groupedTests.length === 0 ? (
               <p className="text-gray-400 col-span-3 text-center py-10 bg-gray-50 rounded-3xl border border-gray-100">{t('simulation.noCommunityScenarios')}</p>
             ) : (
-              approvedTests.map((test, i) => (
+              groupedTests.map((test, i) => (
                 <motion.div key={test._id || i} whileHover={{ y: -5 }}>
-                  <Card padding="p-6" className="h-full flex flex-col hover:shadow-lg transition-shadow bg-white rounded-[2rem] border border-gray-100 cursor-pointer" onClick={() => startTest('specific', [test])}>
+                  <Card padding="p-6" className="h-full flex flex-col hover:shadow-lg transition-shadow bg-white rounded-[2rem] border border-gray-100 cursor-pointer" onClick={() => startTest('specific', test.allTests)}>
                     <div className="flex justify-between items-start mb-4">
                       <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex justify-center items-center text-xl">{test.icon || '🛡️'}</div>
-                      <Badge variant="primary">{test.category || 'General'}</Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="primary">{test.category || 'General'}</Badge>
+                        {test.isBatch && (
+                          <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {test.count} Questions
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <h3 className="font-bold text-lg text-[#1a1a1a] mb-2">{test.title}</h3>
                     <p className="text-gray-500 text-sm flex-1 line-clamp-3 mb-6">{test.description}</p>
@@ -243,6 +529,7 @@ const LifeScenario = () => {
                 </motion.div>
               ))
             )}
+
           </div>
         </div>
       </motion.div>
@@ -262,32 +549,127 @@ const LifeScenario = () => {
         </p>
         <form onSubmit={submitNewTest} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('simulation.titleLabel')}</label>
-            <input required type="text" className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={createForm.title} onChange={e => setCreateForm({...createForm, title: e.target.value})} placeholder={t('simulation.titlePlaceholder')} />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('simulation.testTypeLabel', 'Test Type')}</label>
+            <select
+              className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              value={createForm.testType}
+              onChange={(e) => setCreateForm({ ...createForm, testType: e.target.value })}
+            >
+              {TEST_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>{getTypeLabel(type.value)}</option>
+              ))}
+            </select>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('simulation.descriptionLabel')}</label>
-            <textarea required rows={3} className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={createForm.description} onChange={e => setCreateForm({...createForm, description: e.target.value})} placeholder={t('simulation.descriptionPlaceholder')} />
-          </div>
-          <div className="space-y-4">
-            <label className="block text-sm font-semibold text-gray-700">{t('simulation.choicesLabel')}</label>
-            {createForm.choices.map((choice, i) => (
-              <div key={i} className={`p-4 rounded-2xl border ${i===0 ? 'border-emerald-200 bg-emerald-50/30' : 'border-red-200 bg-red-50/30'} space-y-3`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`font-bold text-sm ${i===0 ? 'text-emerald-700' : 'text-red-700'}`}>{t('simulation.choice')} {i+1} ({i===0 ? t('simulation.correct') : t('simulation.incorrect')})</span>
-                </div>
-                <input required type="text" placeholder={t('simulation.choiceTextPlaceholder')} className="w-full p-3 rounded-xl border border-gray-200" value={choice.text} onChange={e => { const newC = [...createForm.choices]; newC[i].text = e.target.value; setCreateForm({...createForm, choices: newC}) }} />
-                <input required type="text" placeholder={t('simulation.feedbackPlaceholder')} className="w-full p-3 rounded-xl border border-gray-200" value={choice.feedback} onChange={e => { const newC = [...createForm.choices]; newC[i].feedback = e.target.value; setCreateForm({...createForm, choices: newC}) }} />
+
+          <div className="flex flex-col space-y-6">
+            {/* Numeric Navigation Bar */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {createForm.questions.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveQuestionIndex(idx)}
+                  className={`w-10 h-10 rounded-xl font-bold transition-all border ${activeQuestionIndex === idx ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500'}`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  if (createForm.questions.length < 20) {
+                    addQuestion();
+                    setActiveQuestionIndex(createForm.questions.length);
+                  }
+                }}
+                className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:border-blue-300 hover:text-blue-500 flex items-center justify-center transition-all"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Active Question Form */}
+            <div className="p-6 rounded-3xl border-2 border-blue-50 bg-blue-50/20 space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-bold text-xl text-blue-900">{t('simulation.questionN', { number: activeQuestionIndex + 1, defaultValue: `Question ${activeQuestionIndex + 1}` })}</h3>
+                {createForm.questions.length > 1 && (
+                  <Button type="button" size="sm" variant="danger" onClick={() => { 
+                    removeQuestion(activeQuestionIndex);
+                    setActiveQuestionIndex(Math.max(0, activeQuestionIndex - 1));
+                  }}>
+                    {t('simulation.removeQuestion', 'Remove')}
+                  </Button>
+                )}
               </div>
-            ))}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Title</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full p-4 rounded-2xl bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                    value={createForm.questions[activeQuestionIndex].title}
+                    onChange={(e) => updateQuestion(activeQuestionIndex, 'title', e.target.value)}
+                    placeholder={t('simulation.titlePlaceholder')}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Scenario Description</label>
+                  <textarea
+                    required
+                    rows={3}
+                    className="w-full p-4 rounded-2xl bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                    value={createForm.questions[activeQuestionIndex].description}
+                    onChange={(e) => updateQuestion(activeQuestionIndex, 'description', e.target.value)}
+                    placeholder={t('simulation.descriptionPlaceholder')}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Choices & Feedback</label>
+                  {createForm.questions[activeQuestionIndex].choices.map((choice, i) => (
+                    <div key={i} className={`p-5 rounded-2xl border ${i === 0 ? 'border-emerald-200 bg-white/50' : 'border-gray-100 bg-white/50'} space-y-3 shadow-sm`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          {String.fromCharCode(65 + i)}
+                        </div>
+                        <span className={`font-bold text-sm ${i === 0 ? 'text-emerald-700' : 'text-gray-600'}`}>
+                          {i === 0 ? t('simulation.correct') : t('simulation.incorrect')}
+                        </span>
+                      </div>
+                      <input
+                        required
+                        type="text"
+                        placeholder={t('simulation.choiceTextPlaceholder')}
+                        className="w-full p-3 rounded-xl border border-gray-100 bg-white focus:ring-2 focus:ring-blue-400 outline-none"
+                        value={choice.text}
+                        onChange={(e) => updateQuestionChoice(activeQuestionIndex, i, 'text', e.target.value)}
+                      />
+                      <input
+                        required
+                        type="text"
+                        placeholder={t('simulation.feedbackPlaceholder')}
+                        className="w-full p-3 rounded-xl border border-gray-100 bg-white focus:ring-2 focus:ring-blue-400 outline-none text-sm italic"
+                        value={choice.feedback}
+                        onChange={(e) => updateQuestionChoice(activeQuestionIndex, i, 'feedback', e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-          <Button variant="primary" size="lg" className="w-full pt-4 mt-6 rounded-[1.5rem]" type="submit" icon={CheckCircle}>{t('simulation.submitForModeration')}</Button>
+          <Button variant="primary" size="lg" className="w-full pt-4 mt-6 rounded-[1.5rem] py-4 text-xl shadow-xl shadow-blue-100" type="submit" icon={CheckCircle}>{t('simulation.submitForModeration')}</Button>
+
         </form>
       </motion.div>
     );
   }
 
   const totalCount = runPipeline.length > 0 ? runPipeline.length : 5;
+
   const scorePercentage = Math.round((correctCount / totalCount) * 100);
 
   // ==================== LOADING SCREEN ====================
@@ -304,7 +686,8 @@ const LifeScenario = () => {
     return (
       <Card className="max-w-2xl mx-auto text-center p-8 rounded-[3rem] border border-red-200 bg-white shadow-sm">
         <AlertOctagon className="w-14 h-14 text-red-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-[#1a1a1a] mb-2">{t('simulation.aiErrorTitle')}</h2>
+        <h2 className="text-2xl font-bold text-[#1a1a1a] mb-2">{t('simulation.errorTitle', 'Simulation Error')}</h2>
+
         <p className="text-gray-600 mb-6">{scenarioError || t('simulation.aiError')}</p>
         <div className="flex justify-center">
           <Button variant="primary" onClick={restartGame} icon={RotateCcw}>
@@ -325,6 +708,7 @@ const LifeScenario = () => {
     };
 
     const grade = getGrade();
+    const weakPoints = results.filter((item) => !item.isCorrect).slice(0, 3);
 
     return (
       <div className="max-w-2xl mx-auto animate-fade-in">
@@ -381,6 +765,23 @@ const LifeScenario = () => {
             {t('simulation.tryAgain')}
           </Button>
         </div>
+
+        {testMode === 'learning' && (
+          <Card className="mt-6">
+            <h3 className="text-lg font-bold text-[#1a1a1a] mb-3">{t('simulation.learningCoachTitle', 'Learning Coach')}</h3>
+            {weakPoints.length === 0 ? (
+              <p className="text-sm text-gray-600">{t('simulation.learningCoachExcellent', 'Excellent work. You handled all scenarios safely.')}</p>
+            ) : (
+              <ul className="text-sm text-gray-700 space-y-2">
+                {weakPoints.map((item, idx) => (
+                  <li key={idx} className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                    {t('simulation.learningCoachReview', 'Review scenario:')} <strong>{item.scenarioTitle}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
       </div>
     );
   }
@@ -389,52 +790,104 @@ const LifeScenario = () => {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Progress bar */}
-      <div className="mb-6">
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <ProgressBar
           value={gameState === 'feedback' ? currentIndex + 1 : currentIndex}
           max={totalCount}
           label={t('simulation.progress')}
         />
-      </div>
+      </motion.div>
 
-      {gameState === 'loading' ? (
-        <Card className="animate-rainbow border-2 min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden" glow>
-          <div className="absolute inset-0 bg-white/40 pointer-events-none" />
-          <div className="relative z-10 w-full px-8 flex flex-col items-center text-center">
-             <div className="flex gap-2 justify-center mb-6">
-               <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-               <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-               <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce"></div>
-             </div>
-             <p className="text-lg font-bold text-[#1a1a1a] mb-2">{t('simulation.generatingTitle', 'AI is Generating a Scenario...')}</p>
-             <p className="text-sm text-gray-500 max-w-sm">{t('simulation.generatingDesc', 'Crafting a real-world dilemma...')}</p>
-          </div>
-        </Card>
-      ) : (
-        <>
-          {/* Current scenario */}
-          {currentScenario && (
-            <ScenarioCard
-              scenario={currentScenario}
-              currentIndex={currentIndex}
-              total={totalCount}
-              onChoose={handleChoice}
-              disabled={gameState === 'feedback'}
-            />
-          )}
+      <AnimatePresence mode="wait">
+        {gameState === 'loading' ? (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+          >
+            <Card className="animate-rainbow border-2 min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden" glow>
+              <div className="absolute inset-0 bg-white/40 pointer-events-none" />
+              <div className="relative z-10 w-full px-8 flex flex-col items-center text-center">
+                 <div className="flex gap-2 justify-center mb-6">
+                   <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                   <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                   <div className="w-3 h-3 bg-[#1a1a1a] rounded-full animate-bounce"></div>
+                 </div>
+                 <p className="text-lg font-bold text-[#1a1a1a] mb-2">{t('simulation.generatingTitle', 'AI is Generating a Scenario...')}</p>
+                 <p className="text-sm text-gray-500 max-w-sm">{t('simulation.generatingDesc', 'Crafting a real-world dilemma...')}</p>
+              </div>
+            </Card>
+          </motion.div>
+        ) : (
+          <motion.div
+            key={currentScenario?._id || currentScenario?.id || 'scenario'}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            {/* Current scenario */}
+            {currentScenario && (
+              <ScenarioCard
+                scenario={currentScenario}
+                currentIndex={currentIndex}
+                total={totalCount}
+                onChoose={handleChoice}
+                disabled={gameState === 'feedback'}
+              />
+            )}
 
-          {/* Feedback overlay (shown after choosing) */}
-          {gameState === 'feedback' && (
-            <FeedbackModal
-              choice={selectedChoice}
-              onNext={handleNext}
-              isLastScenario={currentIndex === totalCount - 1}
+            {/* Feedback overlay (shown after choosing) */}
+            {gameState === 'feedback' && (
+              <FeedbackModal
+                choice={selectedChoice}
+                onNext={handleNext}
+                isLastScenario={currentIndex === totalCount - 1}
+              />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* High score celebration effect (simple CSS confetti) */}
+      {gameState === 'results' && scorePercentage >= 90 && (
+        <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
+          {Array.from({ length: 50 }).map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ 
+                x: Math.random() * window.innerWidth - window.innerWidth / 2, 
+                y: -100, 
+                rotate: 0,
+                opacity: 1 
+              }}
+              animate={{ 
+                y: window.innerHeight + 100,
+                rotate: 360,
+                x: (Math.random() - 0.5) * 500,
+                opacity: 0
+              }}
+              transition={{ 
+                duration: Math.random() * 2 + 2, 
+                repeat: Infinity, 
+                delay: Math.random() * 2 
+              }}
+              className="absolute w-3 h-3 rounded-sm"
+              style={{ 
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][Math.floor(Math.random() * 5)] 
+              }}
             />
-          )}
-        </>
+          ))}
+        </div>
       )}
     </div>
   );
 };
+
 
 export default LifeScenario;

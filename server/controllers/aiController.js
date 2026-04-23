@@ -120,6 +120,32 @@ const getTargetLanguage = (lang) => {
   return langNames[normalizedLang] || 'English';
 };
 
+const normalizeAiTestType = (value) => {
+  const normalized = (value || 'mixed').toString().toLowerCase();
+  if (['standard', 'phishing', 'social', 'device', 'mixed', 'learning'].includes(normalized)) {
+    return normalized;
+  }
+  return 'mixed';
+};
+
+const getTypeInstruction = (type) => {
+  switch (type) {
+    case 'phishing':
+      return 'Focus mainly on phishing via email, SMS, QR codes, fake support chats, and fake login pages.';
+    case 'social':
+      return 'Focus mainly on social engineering, urgency pressure, authority impersonation, and manipulation tactics.';
+    case 'device':
+      return 'Focus mainly on device security, app permissions, update safety, public Wi-Fi, and endpoint hygiene.';
+    case 'learning':
+      return 'Create educational progression: include one easy, one medium, and one tricky scenario with clear teachable moments.';
+    case 'standard':
+      return 'Create practical day-to-day cybersecurity scenarios suitable for a broad audience.';
+    case 'mixed':
+    default:
+      return 'Mix multiple cybersecurity themes and vary threat patterns broadly.';
+  }
+};
+
 const isDev = process.env.NODE_ENV !== 'production';
 const RECENT_SCENARIO_LIMIT = 20;
 const recentScenarioFingerprints = [];
@@ -480,6 +506,7 @@ exports.generateFact = async (req, res) => {
 exports.generateScenario = async (req, res) => {
   try {
     const lang = normalizeLang(req.query.lang);
+    const testType = normalizeAiTestType(req.query.type);
     const targetLang = getTargetLanguage(lang);
     const primaryScenarioModel = process.env.OPENROUTER_SCENARIO_MODEL || 'google/gemini-2.5-flash';
     const backupScenarioModel = process.env.OPENROUTER_SCENARIO_BACKUP_MODEL || 'google/gemini-2.0-flash-001';
@@ -497,8 +524,8 @@ exports.generateScenario = async (req, res) => {
     for (const model of scenarioModels) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const extraInstructions = retryThemes.length
-          ? `Do not repeat these recent themes or structures: ${retryThemes.join('; ')}. Create a different everyday situation, different title, and different choice wording.`
-          : 'Avoid the most common phishing, password reset, or fake delivery examples. Use a fresh everyday situation and distinct answer choices.';
+          ? `Do not repeat these recent themes or structures: ${retryThemes.join('; ')}. Create a different everyday situation, different title, and different choice wording. ${getTypeInstruction(testType)}`
+          : `Avoid the most common phishing, password reset, or fake delivery examples. Use a fresh everyday situation and distinct answer choices. ${getTypeInstruction(testType)}`;
 
         try {
           scenarioData = await callOpenRouterApi({
@@ -559,6 +586,7 @@ exports.generateScenario = async (req, res) => {
 exports.generateScenarioBatch = async (req, res) => {
   try {
     const lang = normalizeLang(req.query.lang);
+    const testType = normalizeAiTestType(req.query.type);
     const targetLang = getTargetLanguage(lang);
     const requestedCount = Number.parseInt(req.query.count, 10);
     const count = Number.isFinite(requestedCount) ? Math.min(Math.max(requestedCount, 1), 8) : 5;
@@ -580,8 +608,8 @@ exports.generateScenarioBatch = async (req, res) => {
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const extraInstructions = attempt === 0
-        ? `Avoid these existing scenario titles and patterns: ${knownTitles || 'none'}. Make the scenarios feel different from one another.`
-        : `The previous answer had duplicates or missing items. Return exactly ${count} unique scenarios only. Each scenario must be distinct from the others and from the existing titles.`;
+        ? `Avoid these existing scenario titles and patterns: ${knownTitles || 'none'}. Make the scenarios feel different from one another. ${getTypeInstruction(testType)}`
+        : `The previous answer had duplicates or missing items. Return exactly ${count} unique scenarios only. Each scenario must be distinct from the others and from the existing titles. ${getTypeInstruction(testType)}`;
 
       try {
         const batch = await generateScenarioBatchViaOpenRouterApi(targetLang, count, extraInstructions);

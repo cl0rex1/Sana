@@ -9,7 +9,15 @@ import Badge from '../ui/Badge';
  */
 const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => {
   const { t } = useTranslation();
+
+  // Shuffle choices once when the scenario changes
+  const shuffledChoices = React.useMemo(() => {
+    if (!scenario?.choices) return [];
+    return [...scenario.choices].sort(() => Math.random() - 0.5);
+  }, [scenario]);
+
   return (
+
     <div className="animate-fade-in">
       {/* Scenario header */}
       <div className="flex items-center justify-between mb-6">
@@ -39,7 +47,8 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
           {t('simulation.whatToDo')}
         </p>
-        {scenario.choices.map((choice, index) => (
+        {shuffledChoices.map((choice, index) => (
+
           <button
             key={choice.id}
             onClick={() => onChoose(choice)}

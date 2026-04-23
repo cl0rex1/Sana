@@ -29,6 +29,10 @@ const Navbar = () => {
     { path: '/dashboard', label: t('nav.dashboard') },
   ];
 
+  if (user?.role === 'admin') {
+    navLinks.push({ path: '/admin', label: 'Admin' });
+  }
+
   const isActive = (path) => location.pathname === path;
 
   const handleLangChange = (e) => {

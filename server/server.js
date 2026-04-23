@@ -15,9 +15,12 @@ const statsRoutes = require('./routes/statsRoutes');
 const authRoutes = require('./routes/authRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const scenarioRoutes = require('./routes/scenarioRoutes');
+const articleRoutes = require('./routes/articleRoutes');
+const historyRoutes = require('./routes/historyRoutes');
+
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // --------------- Middleware ---------------
 
@@ -54,6 +57,9 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/scenarios', scenarioRoutes);
+app.use('/api/articles', articleRoutes);
+app.use('/api/history', historyRoutes);
+
 
 // 404 handler for undefined routes
 app.use((req, res) => {
@@ -83,7 +89,37 @@ const startServer = async () => {
       console.log(`✅ Auto-seeded ${facts.length} cyber facts`);
     }
 
-    // Start listening and handle port conflicts explicitly.
+    // Auto-seed articles if empty
+    const Article = require('./models/Article');
+    const articleCount = await Article.countDocuments();
+    if (articleCount === 0) {
+      console.log('📦 No articles found. Checking for admin to seed...');
+      const User = require('./models/User');
+      const admin = await User.findOne({ role: 'admin' });
+      if (admin) {
+        const Scenario = require('./models/Scenario');
+        const scenarios = await Scenario.find({ status: 'approved' });
+        const initialArticles = [
+          {
+            title: 'Защита от фишинга: Полное руководство',
+            description: 'Узнайте, как распознать поддельные письма и сайты.',
+            content: '<h3>Что такое фишинг?</h3><p>Фишинг — это вид интернет-мошенничества...</p>',
+            category: 'phishing',
+            tag: 'Безопасность',
+            icon: 'Shield',
+            language: 'ru',
+            author: admin._id,
+            status: 'approved',
+            points: ['Проверяйте URL сайта', 'Не доверяйте срочным запросам'],
+
+            practiceScenario: scenarios.find(s => s.testType === 'phishing')?._id
+          }
+        ];
+        await Article.insertMany(initialArticles);
+        console.log(`✅ Auto-seeded ${initialArticles.length} articles`);
+      }
+    }
+
     const server = app.listen(PORT, () => {
       console.log(`\n🚀 Sana API Server running on http://localhost:${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);

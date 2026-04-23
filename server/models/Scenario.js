@@ -24,6 +24,11 @@ const scenarioSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  testType: {
+    type: String,
+    enum: ['standard', 'phishing', 'social', 'device', 'mixed', 'learning'],
+    default: 'standard'
+  },
   icon: {
     type: String,
     default: '🛡️'
@@ -42,6 +47,9 @@ const scenarioSchema = new mongoose.Schema({
   aiFeedback: {
     type: String,
     default: ''
+  },
+  batchId: {
+    type: String
   },
   language: {
     type: String,

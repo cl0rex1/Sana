@@ -49,6 +49,26 @@
     "aiTest": "AI Test",
     "randomTest": "Random Test",
     "createNewTest": "Create New Test",
+    "learningMode": "Learning Mode",
+    "openLearning": "Open Learning",
+    "hideLearning": "Hide Learning",
+    "learningTracksTitle": "Learning Tracks",
+    "learningTracksSubtitle": "Pick a topic and run a focused short practice session.",
+    "startTrack": "Start Track",
+    "testTypeLabel": "Test Type",
+    "addQuestion": "Add Question",
+    "questionsCounter": "Questions: {{count}}/20",
+    "questionsLimitHint": "You can submit up to 20 questions in one test.",
+    "questionN": "Question {{number}}",
+    "removeQuestion": "Remove",
+    "type": {
+      "mixed": "Mixed",
+      "standard": "Standard",
+      "phishing": "Phishing",
+      "social": "Social Engineering",
+      "device": "Device Security",
+      "learning": "Learning"
+    },
     "communityScenarios": "Community Scenarios",
     "noCommunityScenarios": "No community scenarios available yet. Be the first to create one!",
     "playTest": "Play Test",
@@ -76,7 +96,7 @@
     "alwaysVigilant": "Always stay vigilant. Cybercriminals constantly evolve their tactics.",
     "realSituationConsequence": "In a real situation, this choice could lead to financial loss, identity theft, or emotional harm.",
     "viewResults": "View Results",
-    "nextScenario": "Next Scenario →",
+    "nextScenario": "Next Scenario",
     "generatingFact": "Generating cyber fact…",
     "preparingFact": "Preparing your cyber fact...",
     "factFallbackNote": "If AI is busy, Sana will instantly use verified database facts.",
@@ -95,6 +115,9 @@
     "risky": "Risky",
     "generatingTitle": "AI is Generating a Scenario...",
     "generatingDesc": "Crafting a real-world dilemma..."
+    ,"learningCoachTitle": "Learning Coach",
+    "learningCoachExcellent": "Excellent work. You handled all scenarios safely.",
+    "learningCoachReview": "Review scenario:"
   },
   "dashboard": {
     "title": "Security Dashboard",
@@ -118,11 +141,21 @@
   },
   "auth": {
     "loginTitle": "Welcome Back",
+    "loginSubtitle": "Secure access to your Sana account",
+    "loginBtn": "Log In",
+    "loginLink": "Log In",
     "registerTitle": "Create Account",
-    "email": "Email",
+    "registerSubtitle": "Join the Sana security community",
+    "registerBtn": "Create Account",
+    "registerLink": "Register",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "forgotPassword": "Forgot?",
+    "email": "Email Address",
     "password": "Password",
     "username": "Username",
     "submit": "Submit"
+
   },
   "articles": {
     "tag": {
@@ -132,22 +165,60 @@
       "socialEng": "Social Engineering"
     },
     "subtitle": "Expand your cybersecurity knowledge with short, impactful articles.",
+    "learningTitle": "Open Learning Modules",
+    "learningSubtitle": "Open a module, review key signals, and launch topic-focused practice.",
+    "keySignals": "Key Signals",
+    "readyPractice": "Ready to practice this topic?",
+    "startPractice": "Start Practice",
+    "hideModule": "Hide module",
     "readMore": "Read more",
+    "createBtn": "Create Article",
+    "createTitle": "Create Educational Article",
+    "createDesc": "Share your cybersecurity knowledge with the community.",
+    "titleLabel": "Article Title",
+    "categoryLabel": "Category",
+    "languageLabel": "Language",
+    "tagLabel": "Tag (optional)",
+    "practiceLinkLabel": "Link Practice Scenario",
+    "keyTakeawaysLabel": "Key Takeaways (max 6)",
+    "descriptionLabel": "Short Summary",
+    "contentLabel": "Article Content (HTML Supported)",
+    "publish": "Publish",
+    "submit": "Submit for Moderation",
+    "backToList": "Back to List",
+    "readyToTest": "Ready to test your knowledge?",
+    "practicePrompt": "Launch a focused simulation based on this article and earn points.",
+    "startPractice": "Start Practice",
+    "keyTakeaways": "Key Takeaways",
+    "authorLabel": "Content Expert",
     "art1": {
+
       "title": "How to Spot a Phishing Email",
-      "desc": "Learn the core markers of malicious emails and how they trick you."
+      "desc": "Learn the core markers of malicious emails and how they trick you.",
+      "p1": "Check the sender domain carefully: tiny letter swaps often reveal fakes.",
+      "p2": "Urgency and account-lock threats are common pressure tactics.",
+      "p3": "Never enter credentials from email links; open the official site manually."
     },
     "art2": {
       "title": "The Power of 2FA",
-      "desc": "Secure your accounts with Two-Factor Authentication."
+      "desc": "Secure your accounts with Two-Factor Authentication.",
+      "p1": "Prefer authenticator apps over SMS when possible.",
+      "p2": "Store backup 2FA recovery codes in a secure offline location.",
+      "p3": "Enable 2FA on email first because it protects account recovery paths."
     },
     "art3": {
       "title": "Public Wi-Fi Risks",
-      "desc": "Why you should never check your bank account at a cafe."
+      "desc": "Why you should never check your bank account at a cafe.",
+      "p1": "Avoid banking and email login on open Wi-Fi unless you use VPN.",
+      "p2": "Verify network names with staff to avoid evil-twin hotspots.",
+      "p3": "Disable auto-join Wi-Fi on phone and laptop."
     },
     "art4": {
       "title": "Social Engineering Basics",
-      "desc": "Hackers exploit human psychology. Here is what to look out for."
+      "desc": "Hackers exploit human psychology. Here is what to look out for.",
+      "p1": "If someone asks for sensitive info under urgency, pause and verify.",
+      "p2": "Confirm identity through an independent communication channel.",
+      "p3": "Never approve codes or payments you did not initiate yourself."
     }
   }
 }
