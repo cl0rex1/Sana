@@ -29,6 +29,11 @@ const scenarioSchema = new mongoose.Schema({
     enum: ['standard', 'phishing', 'social', 'device', 'mixed', 'learning'],
     default: 'standard'
   },
+  selectionType: {
+    type: String,
+    enum: ['single', 'multiple'],
+    default: 'single'
+  },
   icon: {
     type: String,
     default: '🛡️'
@@ -55,6 +60,11 @@ const scenarioSchema = new mongoose.Schema({
     type: String,
     enum: ['en', 'ru', 'kz'],
     default: 'en'
+  },
+  moderatedBy: {
+    type: String,
+    enum: ['ai', 'human'],
+    default: 'ai'
   },
   createdAt: {
     type: Date,

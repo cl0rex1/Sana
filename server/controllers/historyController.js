@@ -7,7 +7,7 @@ const TestHistory = require('../models/TestHistory');
  */
 const saveTestResult = async (req, res, next) => {
   try {
-    const { testType, score, totalQuestions, correctAnswers } = req.body;
+    const { testType, score, totalQuestions, correctAnswers, timeSpent, details } = req.body;
 
     if (!testType || score === undefined || !totalQuestions || correctAnswers === undefined) {
       return res.status(400).json({
@@ -21,7 +21,9 @@ const saveTestResult = async (req, res, next) => {
       testType,
       score,
       totalQuestions,
-      correctAnswers
+      correctAnswers,
+      timeSpent,
+      details
     });
 
     res.status(201).json({

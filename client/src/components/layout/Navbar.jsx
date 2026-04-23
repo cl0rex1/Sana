@@ -85,8 +85,14 @@ const Navbar = () => {
             </button>
 
             {user ? (
-               <Link to="/profile" className="flex items-center gap-2 px-5 py-2 rounded-full border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors">
-                 <User className="w-4 h-4" />
+               <Link to="/profile" className="flex items-center gap-2 pl-2 pr-5 py-1.5 rounded-full border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors">
+                 {user.avatar ? (
+                   <img src={user.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                 ) : (
+                   <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                     <User className="w-4 h-4 text-gray-500" />
+                   </div>
+                 )}
                  {t('nav.profile')}
                </Link>
             ) : (

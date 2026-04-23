@@ -24,6 +24,19 @@ const testHistorySchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    timeSpent: {
+      type: Number, // in seconds
+      default: 0,
+    },
+    details: [
+      {
+        scenarioId: String,
+        scenarioTitle: String,
+        choiceText: String,
+        isCorrect: Number,
+        selectionType: String,
+      },
+    ],
     completedAt: {
       type: Date,
       default: Date.now,

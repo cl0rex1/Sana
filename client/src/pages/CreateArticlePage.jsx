@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -16,6 +16,8 @@ import {
   FileText
 } from 'lucide-react';
 
+import { useNotification } from '../context/NotificationContext';
+
 import api from '../utils/api';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -25,6 +27,9 @@ const CreateArticlePage = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const editId = new URLSearchParams(location.search).get('edit');
+  const { pushNotification } = useNotification();
   const [loading, setLoading] = useState(false);
   const [scenarios, setScenarios] = useState([]);
   const contentRef = useRef(null);
@@ -46,8 +51,33 @@ const CreateArticlePage = () => {
       navigate('/login');
     } else {
       fetchScenarios();
+      if (editId) fetchArticleForEdit(editId);
     }
-  }, [user, navigate]);
+  }, [user, navigate, editId]);
+
+  const fetchArticleForEdit = async (id) => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/articles/${id}`);
+      const art = res.data.data || res.data;
+      setFormData({
+        title: art.title || '',
+        description: art.description || '',
+        content: art.content || '',
+        category: art.category || 'general',
+        tag: art.tag || '',
+        icon: art.icon || 'BookOpen',
+        language: art.language || i18n.language || 'ru',
+        practiceScenario: art.practiceScenario || '',
+        points: art.points?.length ? art.points : ['', '', '']
+      });
+    } catch (err) {
+      console.error(err);
+      pushNotification('error', t('articles.editLoadError'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchScenarios = async () => {
     try {
@@ -99,7 +129,9 @@ const CreateArticlePage = () => {
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = formData.content.slice(start, end) || 'Item 1\nItem 2';
+    const selectedText =
+      formData.content.slice(start, end) ||
+      `${t('articles.editor.listItem1')}\n${t('articles.editor.listItem2')}`;
     const listItems = selectedText
       .split('\n')
       .map((line) => line.trim())
@@ -114,14 +146,30 @@ const CreateArticlePage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setLoading(true);
-      await api.post('/articles', formData);
-      alert(user?.role === 'admin' ? 'Article published!' : 'Article submitted for moderation!');
+      const activePoints = formData.points.filter(p => p.trim().length > 0);
+      if (activePoints.length < 3) {
+        pushNotification('error', t('articles.minPointsError', 'Please provide at least 3 key takeaways.'));
+        return;
+      }
 
+      setLoading(true);
+      const payload = { ...formData, points: activePoints };
+      
+      const res = editId 
+        ? await api.put(`/articles/${editId}`, payload)
+        : await api.post('/articles', payload);
+      
+      if (res.data && res.data.status === 'rejected') {
+        pushNotification('error', `${t('admin.rejected', 'Rejected')}: ${res.data.aiFeedback}`);
+        setLoading(false);
+        return;
+      }
+
+      pushNotification('success', editId ? t('articles.updated', 'Article updated!') : (user?.role === 'admin' ? t('articles.published', 'Article published!') : t('articles.submitted', 'Article submitted for moderation!')));
       navigate('/learn');
     } catch (err) {
       console.error(err);
-      alert('Failed to save article');
+      pushNotification('error', err.response?.data?.message || t('articles.saveError', 'Failed to save article'));
     } finally {
       setLoading(false);
     }
@@ -143,7 +191,7 @@ const CreateArticlePage = () => {
         <header className="mb-10 animate-fade-in relative z-10">
           <h1 className="text-4xl font-extrabold text-[#1a1a1a] mb-4 flex items-center gap-3">
             <BookOpen className="w-10 h-10 text-blue-600" />
-            {t('articles.createTitle', 'Create Educational Article')}
+            {editId ? t('articles.editTitle', 'Edit Article') : t('articles.createTitle', 'Create Educational Article')}
           </h1>
           <p className="text-gray-500">
             {t('articles.createDesc', 'Share your cybersecurity knowledge with the community.')}
@@ -198,9 +246,9 @@ const CreateArticlePage = () => {
                       value={formData.language}
                       onChange={(e) => setFormData({ ...formData, language: e.target.value })}
                     >
-                      <option value="ru">Русский</option>
-                      <option value="kz">Қазақша</option>
-                      <option value="en">English</option>
+                      <option value="ru">{t('common.language.ru')}</option>
+                      <option value="kz">{t('common.language.kz')}</option>
+                      <option value="en">{t('common.language.en')}</option>
                     </select>
                   </div>
                 </div>
@@ -302,12 +350,12 @@ const CreateArticlePage = () => {
                 <span className="text-[11px] uppercase tracking-[0.25em] text-gray-400 font-semibold mr-2">
                   {t('articles.formattingLabel', 'Formatting')}
                 </span>
-                <button type="button" onClick={() => wrapSelection('<strong>', '</strong>', 'bold text')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">B</button>
-                <button type="button" onClick={() => wrapSelection('<em>', '</em>', 'italic text')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">I</button>
-                <button type="button" onClick={() => wrapSelection('<h2>', '</h2>', 'Section title')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">H2</button>
-                <button type="button" onClick={() => wrapSelection('<code>', '</code>', 'code')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">{`</>`}</button>
-                <button type="button" onClick={insertList} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">UL</button>
-                <button type="button" onClick={() => wrapSelection('<a href="https://example.com">', '</a>', 'link text')} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">Link</button>
+                <button type="button" onClick={() => wrapSelection('<strong>', '</strong>', t('articles.editor.boldText'))} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">B</button>
+                <button type="button" onClick={() => wrapSelection('<em>', '</em>', t('articles.editor.italicText'))} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">I</button>
+                <button type="button" onClick={() => wrapSelection('<h2>', '</h2>', t('articles.editor.sectionTitle'))} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">H2</button>
+                <button type="button" onClick={() => wrapSelection('<code>', '</code>', t('articles.editor.codeText'))} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">{`</>`}</button>
+                <button type="button" onClick={insertList} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">{t('articles.editor.listButton')}</button>
+                <button type="button" onClick={() => wrapSelection('<a href="https://example.com">', '</a>', t('articles.editor.linkText'))} className="px-3 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-colors">{t('articles.editor.linkButton')}</button>
               </div>
               <p className="text-[11px] text-gray-500 mb-3">
                 {t('articles.formattingHint', 'Select text and use the buttons to insert HTML formatting.')}
@@ -319,7 +367,7 @@ const CreateArticlePage = () => {
                 className="w-full p-6 rounded-[2rem] bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-mono text-sm leading-relaxed"
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder={t('articles.contentPlaceholder', '<h3>Important Rules</h3><p>Always check the sender...</p>')}
+                placeholder={t('articles.contentPlaceholder')}
               />
             </div>
 
@@ -329,10 +377,11 @@ const CreateArticlePage = () => {
                 variant="primary" 
                 size="lg" 
                 loading={loading}
+                loadingType="dots"
                 className="w-full py-4 rounded-[1.5rem] text-xl shadow-xl shadow-blue-100" 
                 icon={Send}
               >
-                {user?.role === 'admin' ? t('articles.publish', 'Publish Article') : t('articles.submit', 'Submit for Moderation')}
+                {editId ? t('articles.saveChanges', 'Save Changes') : (user?.role === 'admin' ? t('articles.publish', 'Publish Article') : t('articles.submit', 'Submit for Moderation'))}
 
               </Button>
             </div>
@@ -345,3 +394,4 @@ const CreateArticlePage = () => {
 };
 
 export default CreateArticlePage;
+

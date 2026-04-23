@@ -131,7 +131,7 @@ const HomePage = () => {
                                 transition={{ duration: 2, ease: "linear" }}
                                 className="overflow-hidden whitespace-nowrap border-r-2 border-red-400 text-sm font-medium text-gray-700"
                               >
-                                You won $10,000! Click here...
+                                {t('home.scamPrize')}
                               </motion.div>
                            </div>
                         </motion.div>
@@ -255,7 +255,7 @@ const HomePage = () => {
                             className="w-full flex justify-start"
                           >
                             <div className="bg-gray-200 text-gray-800 p-4 rounded-2xl rounded-bl-sm max-w-[85%] text-sm font-medium shadow-sm">
-                              Urgent: Your account is blocked! Pay to unlock immediately.
+                              {t('home.scamBlocked')}
                             </div>
                           </motion.div>
                         )}
@@ -292,7 +292,7 @@ const HomePage = () => {
                                           exit={{ opacity: 0, width: 0, marginLeft: 0 }}
                                           className="overflow-hidden whitespace-nowrap"
                                         >
-                                          <span className="text-white font-bold text-sm tracking-wide pr-1">Secured</span>
+                                          <span className="text-white font-bold text-sm tracking-wide pr-1">{t('home.secured')}</span>
                                         </motion.div>
                                       )}
                                     </AnimatePresence>
@@ -306,7 +306,7 @@ const HomePage = () => {
                                     className="absolute inset-0 flex items-center justify-center"
                                   >
                                     <span className="text-white text-sm font-bold whitespace-nowrap">
-                                      {t('home.no', 'No, nice try!')}
+                                      {t('home.no')}
                                     </span>
                                   </motion.div>
                                 )}
@@ -363,7 +363,7 @@ const HomePage = () => {
           transition={{ duration: 0.8 }}
           className="text-center mb-20"
         >
-          <Badge variant="info" className="mb-4">Ecosystem</Badge>
+          <Badge variant="info" className="mb-4">{t('home.ecosystem')}</Badge>
           <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] tracking-tight">{t('home.protection.title')}</h2>
           <p className="text-gray-500 mt-6 max-w-2xl mx-auto text-lg">{t('home.protection.subtitle')}</p>
         </motion.div>
@@ -501,7 +501,12 @@ const HomePage = () => {
                 </div>
 
               </div>
-              <h4 className="text-xl font-bold text-[#1a1a1a]">{t('home.protection.visual.title')}</h4>
+              <div className="flex items-center gap-3 mb-2">
+                <h4 className="text-xl font-bold text-[#1a1a1a]">{t('home.protection.visual.title')}</h4>
+                <Badge variant="purple" className="text-[10px] animate-pulse">
+                  {t('home.inDevelopment')}
+                </Badge>
+              </div>
               <p className="text-gray-500 mt-2 leading-relaxed">{t('home.protection.visual.description')}</p>
             </div>
           </motion.div>
@@ -520,3 +525,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+

@@ -16,6 +16,7 @@ import CreateArticlePage from './pages/CreateArticlePage';
 
 
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 /**
  * Root App component.
@@ -23,28 +24,30 @@ import { AuthProvider } from './context/AuthContext';
  */
 const App = () => {
   return (
-    <AuthProvider>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<HomePage />} />
-            <Route path="simulation" element={<SimulationPage />} />
-            <Route path="learn" element={<ArticlesPage />} />
-            <Route path="learn/:id" element={<ArticleDetailsPage />} />
-            <Route path="learn/create" element={<CreateArticlePage />} />
+    <NotificationProvider>
+      <AuthProvider>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <ScrollToTop />
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<HomePage />} />
+              <Route path="simulation" element={<SimulationPage />} />
+              <Route path="learn" element={<ArticlesPage />} />
+              <Route path="learn/:id" element={<ArticleDetailsPage />} />
+              <Route path="learn/create" element={<CreateArticlePage />} />
 
 
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="login" element={<LoginPage />} />
-            <Route path="register" element={<RegisterPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="admin" element={<AdminPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="login" element={<LoginPage />} />
+              <Route path="register" element={<RegisterPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="admin" element={<AdminPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </NotificationProvider>
   );
 };
 

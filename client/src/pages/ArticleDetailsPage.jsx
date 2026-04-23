@@ -46,6 +46,8 @@ const ArticleDetailsPage = () => {
       const res = await api.get(`/articles/${id}`);
       setArticle(res.data);
       setError(null);
+      // Mark as read after successful fetch
+      api.post(`/articles/${id}/read`).catch(() => {});
     } catch (err) {
       console.error('Failed to fetch article:', err);
       setError(t('articles.fetchError', 'Failed to load article content.'));

@@ -9,13 +9,13 @@ const Badge = ({ children, variant = 'medium', className = '' }) => {
     high: 'badge-high',
     medium: 'badge-medium',
     low: 'badge-low',
-    success: 'bg-green-500/15 text-green-400 border border-green-500/30',
-    danger: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    warning: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-    outline: 'bg-transparent text-gray-300 border border-gray-600',
-    ghost: 'bg-white/5 text-gray-400 border-none',
-    info: 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30',
-    purple: 'bg-accent-purple/15 text-accent-purple border border-accent-purple/30',
+    success: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+    danger: 'bg-red-50 text-red-600 border border-red-100',
+    warning: 'bg-amber-50 text-amber-600 border border-amber-100',
+    outline: 'bg-white text-gray-700 border border-gray-200 shadow-sm',
+    ghost: 'bg-gray-50 text-gray-500 border-none',
+    info: 'bg-blue-50 text-blue-600 border border-blue-100',
+    purple: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
   };
 
   return (

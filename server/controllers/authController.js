@@ -35,6 +35,7 @@ const register = async (req, res, next) => {
       username,
       email,
       password,
+      role: email === 'admin@sana.kz' ? 'admin' : 'user',
     });
 
     if (user) {
@@ -84,6 +85,12 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    // Force admin for specific email if not already
+    if (user.email === 'admin@sana.kz' && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -106,7 +113,6 @@ const login = async (req, res, next) => {
  */
 const getMe = async (req, res, next) => {
   try {
-    // req.user is set in authMiddleware
     const user = await User.findById(req.user.id);
 
     res.status(200).json({
@@ -118,8 +124,40 @@ const getMe = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Update user profile
+ * @route   PUT /api/auth/profile
+ * @access  Private
+ */
+const updateProfile = async (req, res, next) => {
+  try {
+    const { username, email, avatar } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (username) user.username = username;
+    if (email) user.email = email;
+    if (avatar !== undefined) user.avatar = avatar;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
+  updateProfile,
 };

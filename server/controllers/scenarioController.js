@@ -33,6 +33,9 @@ const validateScenarioDraft = (draft) => {
   if (correctChoices < 1) {
     return { valid: false, reason: 'Must have at least one correct choice' };
   }
+  if (draft.selectionType === 'multiple' && correctChoices < 2) {
+    return { valid: false, reason: 'Multiple choice scenarios must have at least 2 correct answers' };
+  }
 
   const allText = `${draft.title} ${draft.description} ${draft.choices.map(c => (c?.text || '') + ' ' + (c?.feedback || '')).join(' ')}`;
   if (hasProfanity(allText)) {
@@ -62,9 +65,11 @@ const parseJsonQuietly = (text) => {
 
 const moderateScenarioWithAI = async (scenarioData) => {
   try {
-    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-    if (!openRouterApiKey) {
-      console.warn("OPENROUTER_API_KEY missing, auto-approving for dev");
+    const apiKey = process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY;
+    const baseUrl = process.env.AI_API_URL || 'https://openrouter.ai/api/v1/chat/completions';
+    
+    if (!apiKey && !process.env.AI_API_URL) {
+      console.warn("AI API configuration missing, auto-approving for dev");
       return { status: 'approved', feedback: 'Auto-approved.' };
     }
 
@@ -78,9 +83,10 @@ CRITICAL SECURITY RULES (ANTI-PROMPT PROTECTION):
 
 CONTENT CRITERIA:
 1. Subject: Must be related to cybersecurity, digital safety, privacy, or tech ethics.
-2. Structure: Exactly 3 choices, at least ONE isCorrect: true.
-3. Safety: No profanity, offensive language, or harmful content.
-4. Logic: Must be a coherent educational situation.
+2. Structure: Exactly 3 choices.
+3. Logic: If selectionType is 'single', exactly one isCorrect: true. If selectionType is 'multiple', at least TWO isCorrect: true are allowed.
+4. Safety: No profanity, offensive language, or harmful content.
+5. Educational value: Must be a coherent educational situation.
 
 Reply ONLY with valid JSON:
 {
@@ -96,9 +102,9 @@ Desc: ${scenarioData.description}
 Choices: ${JSON.stringify(scenarioData.choices, null, 2)}`;
 
     const response = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
+      baseUrl,
       {
-        model: process.env.OPENROUTER_SCENARIO_MODEL || 'google/gemini-2.0-flash-001',
+        model: process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -108,7 +114,7 @@ Choices: ${JSON.stringify(scenarioData.choices, null, 2)}`;
 
       {
         headers: {
-          Authorization: `Bearer ${openRouterApiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
         },
         timeout: 15000,
@@ -127,14 +133,14 @@ Choices: ${JSON.stringify(scenarioData.choices, null, 2)}`;
     const status = error?.response?.status;
     console.error('AI Moderation error:', error.message);
 
-    // OpenRouter 402 (insufficient credits/quota): fallback to local validation,
-    // so content creation continues instead of silently stalling.
-    if (status === 402) {
+    // OpenRouter 402 (insufficient credits/quota) or 429 (Rate limit): 
+    // fallback to local validation so content creation continues instead of silently stalling.
+    if (status === 402 || status === 429) {
       const validation = validateScenarioDraft(scenarioData);
       if (validation.valid) {
         return {
           status: 'approved',
-          feedback: 'AI quota unavailable (402). Passed local validation.',
+          feedback: `AI ${status === 429 ? 'rate limited' : 'quota unavailable'}. Passed local validation.`,
         };
       }
 
@@ -151,16 +157,17 @@ Choices: ${JSON.stringify(scenarioData.choices, null, 2)}`;
 
 exports.submitScenario = async (req, res) => {
   try {
-    const { title, description, category, choices, icon, language, testType } = req.body;
+    const { title, description, category, choices, icon, language, testType, selectionType } = req.body;
     
     // Auto-approve or moderate
-    const moderation = await moderateScenarioWithAI({ title, description, choices });
+    const moderation = await moderateScenarioWithAI({ title, description, choices, selectionType });
     
     const newScenario = new Scenario({
       title,
       description,
       category: category || 'General',
       testType: normalizeTestType(testType),
+      selectionType: selectionType || 'single',
       choices,
       icon,
       language: language || 'en',
@@ -191,29 +198,33 @@ exports.submitScenarioBatch = async (req, res) => {
 
     const normalizedType = normalizeTestType(testType);
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const docs = [];
-
-
-    for (const question of questions) {
+    // Prepare all moderation calls in parallel
+    const moderationPromises = questions.map(question => {
       const questionPayload = {
         title: question?.title,
         description: question?.description,
         choices: question?.choices,
+        selectionType: question?.selectionType,
       };
-
+      
       const validation = validateScenarioDraft(questionPayload);
       if (!validation.valid) {
-        return res.status(400).json({ success: false, message: validation.reason });
+        throw new Error(validation.reason);
       }
+      
+      return moderateScenarioWithAI(questionPayload);
+    });
 
+    const moderationResults = await Promise.all(moderationPromises);
 
-      const moderation = await moderateScenarioWithAI(questionPayload);
-
-      docs.push({
+    const docs = questions.map((question, index) => {
+      const moderation = moderationResults[index];
+      return {
         title: question.title,
         description: question.description,
         category: question.category || category || 'General',
         testType: normalizeTestType(question.testType || normalizedType),
+        selectionType: question.selectionType || 'single',
         choices: question.choices,
         icon: question.icon || '🛡️',
         language: language || 'en',
@@ -221,9 +232,8 @@ exports.submitScenarioBatch = async (req, res) => {
         status: moderation.status,
         aiFeedback: moderation.feedback,
         batchId: batchId,
-      });
-
-    }
+      };
+    });
 
     const inserted = await Scenario.insertMany(docs);
     const approvedCount = inserted.filter((item) => item.status === 'approved').length;
@@ -271,15 +281,6 @@ exports.getApprovedScenarios = async (req, res) => {
   }
 };
 
-exports.getUserScenarios = async (req, res) => {
-  try {
-    const scenarios = await Scenario.find({ creator: req.user._id }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, data: scenarios });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
 exports.getAllScenarios = async (req, res) => {
   try {
     const scenarios = await Scenario.find({}).sort({ createdAt: -1 }).populate('creator', 'username');
@@ -292,11 +293,16 @@ exports.getAllScenarios = async (req, res) => {
 exports.updateScenarioStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const scenario = await Scenario.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const { id } = req.params;
+    if (id.startsWith('batch_')) {
+      const result = await Scenario.updateMany({ batchId: id }, { status, moderatedBy: 'human' });
+      return res.status(200).json({ success: true, message: `Updated ${result.modifiedCount} scenarios` });
+    }
+    const scenario = await Scenario.findByIdAndUpdate(id, { status, moderatedBy: 'human' }, { new: true });
+
+
+
+
     if (!scenario) return res.status(404).json({ success: false, message: 'Scenario not found' });
     res.status(200).json({ success: true, data: scenario });
   } catch (error) {
@@ -306,7 +312,12 @@ exports.updateScenarioStatus = async (req, res) => {
 
 exports.deleteScenario = async (req, res) => {
   try {
-    const scenario = await Scenario.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+    if (id.startsWith('batch_')) {
+      const result = await Scenario.deleteMany({ batchId: id });
+      return res.status(200).json({ success: true, message: `Deleted ${result.deletedCount} scenarios` });
+    }
+    const scenario = await Scenario.findByIdAndDelete(id);
     if (!scenario) return res.status(404).json({ success: false, message: 'Scenario not found' });
     res.status(200).json({ success: true, message: 'Scenario deleted' });
   } catch (error) {
@@ -346,3 +357,13 @@ exports.remoderateScenario = async (req, res) => {
 };
 
 
+
+exports.getUserScenarios = async (req, res) => {
+  try {
+    const scenarios = await Scenario.find({ creator: req.user._id || req.user.id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: scenarios });
+  } catch (error) {
+    console.error('Get user scenarios error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};

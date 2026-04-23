@@ -1,32 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Plus, Trash2, Edit2, Check, X, BookOpen, PlayCircle, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { Plus, Trash2, Edit2, Check, X, BookOpen, PlayCircle, ExternalLink, Shield, Search, Filter, UserCheck, Bot, ChevronDown, Send } from 'lucide-react';
 import api from '../../utils/api';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ConfirmModal from '../ui/ConfirmModal';
+import { useNotification } from '../../context/NotificationContext';
 
 const AdminArticlesSection = () => {
+  const { t } = useTranslation();
+  const { pushNotification } = useNotification();
   const [articles, setArticles] = useState([]);
   const [scenarios, setScenarios] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentArticle, setCurrentArticle] = useState(null);
-  
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    content: '',
-    category: 'general',
-    tag: 'General',
-    icon: 'BookOpen',
-    language: 'ru',
-    practiceScenario: '',
-    points: ['', '', '']
+  const [remoderatingId, setRemoderatingId] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
+  const [expandedArticles, setExpandedArticles] = useState(new Set());
+  const [filters, setFilters] = useState({
+    status: 'all',
+    category: 'all',
+    language: 'all',
+    search: ''
   });
-
-  const [activeFormTab, setActiveFormTab] = useState('general'); // general | content | summary
 
   useEffect(() => {
 
@@ -65,13 +63,47 @@ const AdminArticlesSection = () => {
     setIsEditing(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this article?')) return;
+  const handleDeleteClick = (id) => {
+    setConfirmModal({ isOpen: true, id });
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await api.delete(`/articles/${id}`);
+      await api.delete(`/articles/${confirmModal.id}`);
+      pushNotification('success', t('admin.successDelete'));
       fetchData();
     } catch (err) {
       console.error(err);
+      pushNotification('error', t('admin.errorDelete'));
+    } finally {
+      setConfirmModal({ isOpen: false, id: null });
+    }
+  };
+
+  const handleRemoderate = async (id) => {
+    try {
+      setRemoderatingId(id);
+      await api.put(`/articles/${id}/moderate`);
+      // Explicitly wait for fresh data
+      await fetchData();
+      pushNotification('success', t('admin.remoderateSuccess', 'Article re-moderated successfully!'));
+    } catch (err) {
+      console.error('Failed to remoderate', err);
+      pushNotification('error', t('admin.remoderateError', 'Failed to re-moderate article.'));
+    } finally {
+      // Small delay for UX
+      setTimeout(() => setRemoderatingId(null), 500);
+    }
+  };
+
+  const handleUpdateStatus = async (id, status) => {
+    try {
+      await api.put(`/articles/${id}`, { status, moderatedBy: 'human' });
+      fetchData();
+      pushNotification('success', t('admin.successStatusUpdate', 'Article status updated!'));
+    } catch (err) {
+      console.error(err);
+      pushNotification('error', t('admin.errorStatusUpdate', 'Failed to update article status.'));
     }
   };
 
@@ -87,9 +119,10 @@ const AdminArticlesSection = () => {
       setCurrentArticle(null);
       resetForm();
       fetchData();
+      pushNotification('success', currentArticle ? t('admin.successSave') : t('admin.successSave'));
     } catch (err) {
       console.error(err);
-      alert('Failed to save article');
+      pushNotification('error', t('admin.errorSave'));
     }
   };
 
@@ -113,188 +146,102 @@ const AdminArticlesSection = () => {
     setFormData({ ...formData, points: newPoints });
   };
 
-  if (loading && articles.length === 0) return <div className="text-center py-10">Loading articles...</div>;
+  const toggleArticle = (id) => {
+    setExpandedArticles(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const filteredArticles = articles.filter(art => {
+    const matchStatus = filters.status === 'all' || art.status === filters.status;
+    const matchLang = filters.language === 'all' || art.language === filters.language;
+    const matchCat = filters.category === 'all' || art.category === filters.category;
+    const matchSearch = !filters.search || 
+      art.title.toLowerCase().includes(filters.search.toLowerCase()) || 
+      art.description.toLowerCase().includes(filters.search.toLowerCase());
+    return matchStatus && matchLang && matchCat && matchSearch;
+  });
+
+  if (loading && articles.length === 0) return <div className="text-center py-10">{t('admin.loading')}</div>;
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-[#1a1a1a] flex items-center gap-2">
           <BookOpen className="w-6 h-6 text-blue-500" />
-          Articles Management
+          {t('admin.articleMgmt')}
         </h2>
-        {!isEditing && (
-          <Button variant="primary" onClick={() => { resetForm(); setIsEditing(true); setCurrentArticle(null); }} icon={Plus}>
-            Create Article
-          </Button>
-        )}
       </div>
 
-      {isEditing && (
-        <Card className="p-8 border-2 border-blue-100 shadow-xl rounded-[2rem]">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-[#1a1a1a]">
-                {currentArticle ? 'Edit Article' : 'New Article'}
-              </h3>
-              <Button variant="ghost" onClick={() => setIsEditing(false)} icon={X}>Cancel</Button>
-            </div>
 
-            {/* Form Tabs */}
-            <div className="flex bg-gray-50 p-1 rounded-2xl mb-8 w-fit">
-              {[
-                { id: 'general', label: 'General Info' },
-                { id: 'summary', label: 'Summary & Points' },
-                { id: 'content', label: 'Main Content' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveFormTab(tab.id)}
-                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeFormTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
 
-            {activeFormTab === 'general' && (
-              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Title</label>
-                    <input
-                      required
-                      className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="Enter article title"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Tag</label>
-                    <input
-                      className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      value={formData.tag}
-                      onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
-                      placeholder="e.g. Phishing Protection"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Category</label>
-                      <select
-                        className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      >
-                        <option value="phishing">Phishing</option>
-                        <option value="standard">Standard</option>
-                        <option value="device">Device</option>
-                        <option value="social">Social</option>
-                        <option value="network">Network</option>
-                        <option value="general">General</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Language</label>
-                      <select
-                        className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        value={formData.language}
-                        onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                      >
-                        <option value="ru">Russian</option>
-                        <option value="kz">Kazakh</option>
-                        <option value="en">English</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Link Practice Scenario</label>
-                    <select
-                      className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      value={formData.practiceScenario}
-                      onChange={(e) => setFormData({ ...formData, practiceScenario: e.target.value })}
-                    >
-                      <option value="">No Practice Linked</option>
-                      {scenarios.map((sc) => (
-                        <option key={sc._id} value={sc._id}>{sc.icon} {sc.title}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </motion.div>
-            )}
+      <Card className="p-6 bg-white border-gray-100 shadow-sm rounded-3xl">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input 
+              type="text"
+              placeholder={t('admin.searchPlaceholder', 'Search by title or description...')}
+              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+              value={filters.search}
+              onChange={(e) => setFilters({...filters, search: e.target.value})}
+            />
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <select 
+              className="flex-1 md:w-40 p-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white outline-none text-sm"
+              value={filters.status}
+              onChange={(e) => setFilters({...filters, status: e.target.value})}
+            >
+              <option value="all">{t('admin.allStatus', 'All Status')}</option>
+              <option value="pending">{t('admin.pending', 'Pending')}</option>
+              <option value="approved">{t('admin.approved', 'Approved')}</option>
+              <option value="rejected">{t('admin.rejected', 'Rejected')}</option>
+            </select>
+            <select 
+              className="flex-1 md:w-40 p-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white outline-none text-sm"
+              value={filters.language}
+              onChange={(e) => setFilters({...filters, language: e.target.value})}
+            >
+              <option value="all">{t('admin.allLangs', 'All Languages')}</option>
+              <option value="ru">{t('common.langCode.ru')}</option>
+              <option value="kz">{t('common.langCode.kz')}</option>
+              <option value="en">{t('common.langCode.en')}</option>
+            </select>
+          </div>
+        </div>
+      </Card>
 
-            {activeFormTab === 'summary' && (
-              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Description (Snippet)</label>
-                  <textarea
-                    required
-                    rows={6}
-                    className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Short summary for the list view"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Key Takeaways (Points)</label>
-                  <div className="space-y-3">
-                    {formData.points.map((p, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center font-bold text-xs">{i+1}</div>
-                        <input
-                          className="flex-1 p-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                          value={p}
-                          onChange={(e) => updatePoint(i, e.target.value)}
-                          placeholder={`Important point ${i+1}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {activeFormTab === 'content' && (
-              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Main Content (HTML Support)</label>
-                <textarea
-                  required
-                  rows={12}
-                  className="w-full p-6 rounded-2xl bg-gray-50 border border-gray-200 font-mono text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-inner transition-all"
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  placeholder="<p>Write your article here...</p>"
-                />
-                <p className="text-[10px] text-gray-400 italic">Pro-tip: Use HTML tags for formatting (p, h2, ul, li, strong).</p>
-              </motion.div>
-            )}
-
-            <div className="flex gap-4 pt-6">
-              <Button type="submit" variant="primary" size="lg" className="flex-1 py-4 rounded-2xl shadow-xl shadow-blue-100" icon={Check}>
-                {currentArticle ? 'Update Article' : 'Publish Article'}
-              </Button>
-            </div>
-
-          </form>
-        </Card>
-      )}
-
-      <div className="grid gap-6">
-        {articles.map((art) => (
-          <Card key={art._id} className="p-6 bg-white border border-gray-100 hover:shadow-md transition-shadow">
+      <div className={`grid gap-6 transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+        {filteredArticles.map((art) => (
+          <Card 
+            key={art._id} 
+            onClick={() => toggleArticle(art._id)}
+            className="p-6 bg-white border border-gray-100 hover:border-blue-200 transition-all cursor-pointer group/card"
+          >
             <div className="flex flex-col md:flex-row justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Badge variant="outline">{art.tag}</Badge>
+                  <Badge variant={art.status === 'approved' ? 'success' : art.status === 'rejected' ? 'danger' : 'warning'}>
+                    {art.status}
+                  </Badge>
                   <Badge variant="ghost">{art.language?.toUpperCase()}</Badge>
                   {art.practiceScenario && (
                     <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-100 flex items-center gap-1">
-                      <PlayCircle className="w-3 h-3" /> Practice Linked
+                      <PlayCircle className="w-3 h-3" /> {t('admin.practiceLinked')}
+                    </Badge>
+                  )}
+                  {art.moderatedBy === 'human' ? (
+                    <Badge variant="secondary" className="bg-orange-50 text-orange-600 border-orange-100 flex items-center gap-1">
+                      <UserCheck className="w-3 h-3" /> {t('admin.humanModerated', 'Human Moderated')}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-100 flex items-center gap-1">
+                      <Bot className="w-3 h-3" /> {t('admin.aiModerated', 'AI Moderated')}
                     </Badge>
                   )}
                 </div>
@@ -302,27 +249,117 @@ const AdminArticlesSection = () => {
                 <p className="text-gray-500 text-sm mt-1 line-clamp-2">{art.description}</p>
                 <div className="flex items-center gap-4 mt-4 text-xs text-gray-400">
                   <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {art.category}</span>
-                  <span>Updated: {new Date(art.updatedAt).toLocaleDateString()}</span>
+                  <span>{t('admin.updatedAt')}: {new Date(art.updatedAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="secondary" onClick={() => handleEdit(art)} icon={Edit2}>Edit</Button>
-                <Button size="sm" variant="danger" onClick={() => handleDelete(art._id)} icon={Trash2}>Delete</Button>
-                <Link to={`/learn/${art._id}`} target="_blank">
-                  <Button size="sm" variant="ghost" icon={ExternalLink}>View</Button>
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto relative z-10">
+                {art.status !== 'approved' && (
+                  <Button size="sm" variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100" onClick={(e) => { e.stopPropagation(); handleUpdateStatus(art._id, 'approved'); }}>
+                    <Check className="w-4 h-4 mr-1" /> {t('admin.approve')}
+                  </Button>
+                )}
+                {art.status !== 'rejected' && (
+                  <Button size="sm" variant="danger" className="bg-red-50 text-red-700 border-red-100 hover:bg-red-100" onClick={(e) => { e.stopPropagation(); handleUpdateStatus(art._id, 'rejected'); }}>
+                    <X className="w-4 h-4 mr-1" /> {t('admin.reject')}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDeleteClick(art._id); }} className="text-gray-400 hover:text-red-500">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+                <Link to={`/learn/${art._id}`} target="_blank" onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="ghost">
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
                 </Link>
+                <Button size="sm" variant="ghost" className="text-gray-400 group-hover/card:text-blue-500 transition-colors">
+                  <ChevronDown className={`w-5 h-5 transition-transform ${expandedArticles.has(art._id) ? 'rotate-180' : ''}`} />
+                </Button>
               </div>
             </div>
+
+            <AnimatePresence>
+              {expandedArticles.has(art._id) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-4 mt-4 border-t border-gray-100">
+                    <p className="text-gray-700 leading-relaxed mb-4">{art.description}</p>
+                    
+                    <div className="prose prose-sm max-w-none mb-6">
+                      <div 
+                        className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-gray-700 max-h-[400px] overflow-y-auto custom-scrollbar article-content-preview"
+                        dangerouslySetInnerHTML={{ __html: art.content }}
+                      />
+                    </div>
+                    
+                    {art.aiFeedback && (
+                      <div className="p-5 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-[1.5rem] border border-blue-100/50 shadow-inner overflow-hidden relative">
+                        <div className="flex items-center justify-between mb-2">
+                          <strong className="text-indigo-700 text-[10px] uppercase tracking-widest font-black">{t('admin.aiNotes')}</strong>
+                            <Button 
+                              size="sm" 
+                              variant="secondary" 
+                              disabled={remoderatingId === art._id}
+                              className="text-xs py-2 px-4 h-9 bg-white hover:bg-indigo-600 hover:text-white border-indigo-100 shadow-sm transition-all" 
+                              onClick={(e) => { e.stopPropagation(); handleRemoderate(art._id); }}
+                            >
+                              {remoderatingId === art._id ? <Send className="w-3.5 h-3.5 mr-2 animate-pulse" /> : <Shield className="w-3.5 h-3.5 mr-2" />} 
+                              {remoderatingId === art._id ? t('admin.remoderating', 'Moderating...') : t('admin.remoderate')}
+                            </Button>
+                        </div>
+
+                        {remoderatingId === art._id ? (
+                          <div className="flex flex-col items-center justify-center py-6 gap-3">
+                            <div className="flex gap-2">
+                              {[0, 1, 2].map((i) => (
+                                <motion.div
+                                  key={i}
+                                  className="w-2.5 h-2.5 bg-indigo-400 rounded-full"
+                                  animate={{ y: [0, -8, 0] }}
+                                  transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.12, ease: 'easeInOut' }}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-xs font-bold text-indigo-400/70 animate-pulse uppercase tracking-tighter">
+                              {t('admin.analyzing', 'Analyzing content...')}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-indigo-600 leading-relaxed font-medium">{art.aiFeedback}</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="mt-4 flex items-center justify-end">
+                      <Link to={`/learn/${art._id}`} target="_blank" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">
+                        {t('admin.fullArticle', 'Read Full Article')} <ExternalLink className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </Card>
         ))}
 
-        {articles.length === 0 && !loading && (
+        {filteredArticles.length === 0 && !loading && (
           <div className="text-center py-20 bg-gray-50 rounded-[2rem] border border-dashed border-gray-200">
             <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No articles yet. Create your first one!</p>
+            <p className="text-gray-500 text-lg">{t('admin.noResults', 'No results found')}</p>
           </div>
         )}
       </div>
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        title={t('admin.deleteArticleTitle')}
+        message={t('admin.deleteArticleMsg')}
+        confirmText={t('admin.delete')}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmModal({ isOpen: false, id: null })}
+      />
     </div>
   );
 };

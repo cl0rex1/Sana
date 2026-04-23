@@ -221,35 +221,15 @@ const CyberFact = () => {
 
   // Preload AI fact as soon as rush starts (so it's ready when train finishes)
   useEffect(() => {
-    if (phase === 'rush' && bgState === 'idle') {
+    if (isInView && bgState === 'idle') {
       setBgState('loading');
-
-      let settled = false;
-
-      // Safety timeout: if external AI stalls, still reveal a fact quickly.
-      const safetyTimer = setTimeout(async () => {
-        if (settled) return;
-        settled = true;
-        const fallbackFact = await fetchBestFactSafe({ skipAi: true });
-        setAiFact(fallbackFact);
-        setBgState('ready');
-      }, 4000);
-
       (async () => {
         const fact = await fetchBestFactSafe();
-        if (settled) return;
-        settled = true;
-        clearTimeout(safetyTimer);
         setAiFact(fact);
         setBgState('ready');
       })();
-
-      return () => {
-        settled = true;
-        clearTimeout(safetyTimer);
-      };
     }
-  }, [phase, bgState, fetchBestFactSafe]);
+  }, [isInView, bgState, fetchBestFactSafe]);
 
   // Generate AI fact (button click)
   const generateFact = useCallback(async () => {

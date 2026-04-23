@@ -56,6 +56,15 @@ const articleSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
     },
+    aiFeedback: {
+      type: String,
+      trim: true,
+    },
+    moderatedBy: {
+      type: String,
+      enum: ['ai', 'human'],
+      default: 'ai'
+    },
   },
 
   {

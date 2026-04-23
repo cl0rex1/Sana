@@ -19,13 +19,15 @@ const SYSTEM_PROMPT_SCENARIO = `You are a cybersecurity training system. Generat
 IMPORTANT RULES:
 - The content MUST be strictly in the requested language.
 - DO NOT wrap the output in markdown code blocks like \`\`\`json.
-- Create 3 choices: 1 undeniably correct/safe choice, 1 tempting but risky choice, and 1 obviously bad choice.
+- Create 3 choices.
+- selectionType: "single" or "multiple". If "multiple", there can be 2 correct answers.
 - Output ONLY valid JSON, exactly matching this schema:
 {
   "title": "Short catchy title",
   "description": "2-3 sentences describing the scenario",
   "category": "One of: Phishing, Passwords, Network, Social Engineering, Device Security",
   "icon": "A single emoji representing the scenario",
+  "selectionType": "single" or "multiple",
   "choices": [
     {
       "id": "A",
@@ -46,8 +48,9 @@ IMPORTANT RULES:
 - Each scenario in the array must be different in setting, threat type, title, and choice wording.
 - Avoid repeating the same pattern more than once across the whole array.
 - Every scenario must contain exactly 3 choices.
-- Each scenario must have exactly 1 correct choice.
-- Keep the correct choice varied across the array so it is not always A.
+- selectionType: "single" or "multiple".
+- If "single", exactly 1 correct choice. If "multiple", 2 correct choices.
+- Keep the correct choices varied.
 - Output ONLY an array matching this shape:
 [
   {
@@ -55,6 +58,7 @@ IMPORTANT RULES:
     "description": "2-3 sentences describing the scenario",
     "category": "One of: Phishing, Passwords, Network, Social Engineering, Device Security",
     "icon": "A single emoji representing the scenario",
+    "selectionType": "single" or "multiple",
     "choices": [
       {
         "id": "A",
@@ -402,7 +406,7 @@ const sanitizeFactByLanguageRules = (factData, lang) => {
   };
 };
 
-const callOpenRouterApi = async ({
+const callAiApi = async ({
   systemPrompt,
   userPrompt,
   model,
@@ -410,26 +414,24 @@ const callOpenRouterApi = async ({
   maxTokens = 500,
   requestTimeoutMs = 30000,
 }) => {
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-  if (!openRouterApiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured');
-  }
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY;
+  const baseUrl = process.env.AI_API_URL || 'https://openrouter.ai/api/v1/chat/completions';
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${openRouterApiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
         'X-Title': 'Sana Cybersecurity Platform',
       },
       body: JSON.stringify({
-        model: model || process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001',
+        model: model || process.env.OPENROUTER_MODEL || 'inclusionai/ling-2.6-1t:free',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -441,7 +443,7 @@ const callOpenRouterApi = async ({
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenRouter request failed: ${response.status} ${errorText}`);
+      throw new Error(`AI API request failed: ${response.status} ${errorText}`);
     }
 
     const payload = await response.json();
@@ -453,17 +455,17 @@ const callOpenRouterApi = async ({
 };
 
 const generateFactViaOpenRouterApi = async (targetLang) => {
-  return callOpenRouterApi({
+  return callAiApi({
     systemPrompt: SYSTEM_PROMPT_FACT,
     userPrompt: `Generate a cybersecurity fact in ${targetLang}. Focus on real-world data.`,
   });
 };
 
 const generateScenarioViaOpenRouterApi = async (targetLang, extraInstructions = '') => {
-  return callOpenRouterApi({
+  return callAiApi({
     systemPrompt: SYSTEM_PROMPT_SCENARIO,
     userPrompt: `Generate a scenario in ${targetLang}. ${extraInstructions}`.trim(),
-    model: process.env.OPENROUTER_SCENARIO_MODEL || 'google/gemini-2.5-flash',
+    model: process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free',
     temperature: 0.2,
     maxTokens: 800,
     requestTimeoutMs: 45000,
@@ -471,10 +473,10 @@ const generateScenarioViaOpenRouterApi = async (targetLang, extraInstructions = 
 };
 
 const generateScenarioBatchViaOpenRouterApi = async (targetLang, count, extraInstructions = '') => {
-  return callOpenRouterApi({
+  return callAiApi({
     systemPrompt: SYSTEM_PROMPT_SCENARIO_BATCH,
     userPrompt: `Generate ${count} scenarios in ${targetLang}. ${extraInstructions}`.trim(),
-    model: process.env.OPENROUTER_SCENARIO_MODEL || 'google/gemini-2.5-flash',
+    model: process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free',
     temperature: 0.35,
     maxTokens: 2600,
     requestTimeoutMs: 60000,
@@ -486,7 +488,7 @@ exports.generateFact = async (req, res) => {
     const lang = normalizeLang(req.query.lang);
     const targetLang = getTargetLanguage(lang);
     if (isDev) {
-      console.log(`[AI] Fact request started (provider=OpenRouter, lang=${lang}, model=${process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001'})`);
+      console.log(`[AI] Fact request started (provider=OpenRouter, lang=${lang}, model=${process.env.OPENROUTER_MODEL || 'inclusionai/ling-2.6-1t:free'})`);
     }
     const factData = await generateFactViaOpenRouterApi(targetLang);
     const localizedFact = sanitizeFactByLanguageRules(factData, lang);
@@ -508,8 +510,8 @@ exports.generateScenario = async (req, res) => {
     const lang = normalizeLang(req.query.lang);
     const testType = normalizeAiTestType(req.query.type);
     const targetLang = getTargetLanguage(lang);
-    const primaryScenarioModel = process.env.OPENROUTER_SCENARIO_MODEL || 'google/gemini-2.5-flash';
-    const backupScenarioModel = process.env.OPENROUTER_SCENARIO_BACKUP_MODEL || 'google/gemini-2.0-flash-001';
+    const primaryScenarioModel = process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free';
+    const backupScenarioModel = process.env.OPENROUTER_SCENARIO_BACKUP_MODEL || 'inclusionai/ling-2.6-1t:free';
     const scenarioModels = [...new Set([primaryScenarioModel, backupScenarioModel].filter(Boolean))];
 
     if (isDev) {
@@ -528,7 +530,7 @@ exports.generateScenario = async (req, res) => {
           : `Avoid the most common phishing, password reset, or fake delivery examples. Use a fresh everyday situation and distinct answer choices. ${getTypeInstruction(testType)}`;
 
         try {
-          scenarioData = await callOpenRouterApi({
+          scenarioData = await callAiApi({
             systemPrompt: SYSTEM_PROMPT_SCENARIO,
             userPrompt: `Generate a scenario in ${targetLang}. ${extraInstructions}`.trim(),
             model,
@@ -590,7 +592,7 @@ exports.generateScenarioBatch = async (req, res) => {
     const targetLang = getTargetLanguage(lang);
     const requestedCount = Number.parseInt(req.query.count, 10);
     const count = Number.isFinite(requestedCount) ? Math.min(Math.max(requestedCount, 1), 8) : 5;
-    const model = process.env.OPENROUTER_SCENARIO_MODEL || 'google/gemini-2.0-flash-001';
+    const model = process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free';
 
     if (isDev) {
       console.log(`[AI] Scenario batch request started (provider=OpenRouter, lang=${lang}, count=${count}, model=${model}, timeout=60000ms)`);

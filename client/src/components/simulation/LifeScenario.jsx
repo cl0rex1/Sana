@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock } from 'lucide-react';
+import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -11,21 +11,17 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ProgressBar from '../ui/ProgressBar';
 import Badge from '../ui/Badge';
+import Pagination from '../ui/Pagination';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 
 const TEST_TYPES = [
-  { value: 'mixed', label: 'Mixed' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'phishing', label: 'Phishing' },
-  { value: 'social', label: 'Social Engineering' },
-  { value: 'device', label: 'Device Security' },
-  { value: 'learning', label: 'Learning' },
-];
-
-const LEARNING_TRACKS = [
-  { type: 'phishing', icon: '📧' },
-  { type: 'social', icon: '🧠' },
-  { type: 'device', icon: '📱' },
+  { value: 'mixed' },
+  { value: 'standard' },
+  { value: 'phishing' },
+  { value: 'social' },
+  { value: 'device' },
+  { value: 'learning' },
 ];
 
 const createBlankQuestion = () => ({
@@ -33,6 +29,7 @@ const createBlankQuestion = () => ({
   description: '',
   sharedFeedback: '',
   feedbackMode: 'detailed',
+  selectionType: 'single',
   icon: '🛡️',
   category: 'General',
   choices: [
@@ -83,8 +80,15 @@ const LifeScenario = () => {
   const [gameState, setGameState] = useState(initialSession?.gameState || 'hub'); // hub | creating | loading | playing | feedback | results
   const [testMode, setTestMode] = useState(initialSession?.testMode || null); // 'ai', 'random', 'learning', 'specific'
   const [selectedTestType, setSelectedTestType] = useState(initialSession?.selectedTestType || 'mixed');
-  const [isLearningOpen, setIsLearningOpen] = useState(false);
   const [approvedTests, setApprovedTests] = useState([]);
+  const [communityFilters, setCommunityFilters] = useState({
+    search: '',
+    category: 'all',
+    language: i18n.language || 'ru'
+  });
+  const [communityPage, setCommunityPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [testHistory, setTestHistory] = useState([]);
   const [scenarioError, setScenarioError] = useState(initialSession?.scenarioError || '');
   
   // Game running state
@@ -103,42 +107,13 @@ const LifeScenario = () => {
     questions: [createBlankQuestion()],
   });
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
-  const [notifications, setNotifications] = useState([]);
-
-  const pushNotification = useCallback((type, message) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setNotifications((prev) => [...prev, { id, type, message }]);
-    window.setTimeout(() => {
-      setNotifications((prev) => prev.filter((notification) => notification.id !== id));
-    }, 3500);
-  }, []);
-
-  const notificationStack = (
-    <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 w-[min(24rem,calc(100vw-2.5rem))] pointer-events-none">
-      <AnimatePresence>
-        {notifications.map((notification) => (
-          <motion.div
-            key={notification.id}
-            initial={{ opacity: 0, x: 24, y: -8 }}
-            animate={{ opacity: 1, x: 0, y: 0 }}
-            exit={{ opacity: 0, x: 24, y: -8 }}
-            className={`pointer-events-auto rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-md ${
-              notification.type === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : notification.type === 'error'
-                  ? 'border-red-200 bg-red-50 text-red-800'
-                  : 'border-blue-200 bg-blue-50 text-blue-800'
-            }`}
-          >
-            <div className="text-sm font-semibold leading-relaxed">{notification.message}</div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
+  const { pushNotification } = useNotification();
 
   useEffect(() => {
-    if (!timerStartedAt || !['playing', 'feedback'].includes(gameState)) {
+    const isLastQuestion = currentIndex === (runPipeline.length > 0 ? runPipeline.length : 5) - 1;
+    const isFeedbackOnLast = gameState === 'feedback' && isLastQuestion;
+
+    if (!timerStartedAt || !['playing', 'feedback'].includes(gameState) || isFeedbackOnLast) {
       return undefined;
     }
 
@@ -146,7 +121,7 @@ const LifeScenario = () => {
     tick();
     const intervalId = window.setInterval(tick, 1000);
     return () => window.clearInterval(intervalId);
-  }, [gameState, timerStartedAt]);
+  }, [gameState, timerStartedAt, currentIndex, runPipeline.length]);
 
   useEffect(() => {
     if (gameState === 'hub' || (!currentScenario && runPipeline.length === 0 && results.length === 0)) {
@@ -199,6 +174,40 @@ const LifeScenario = () => {
     }
   });
 
+  const filteredCommunityScenarios = groupedTests.filter(test => {
+    const matchSearch = !communityFilters.search || 
+      test.title.toLowerCase().includes(communityFilters.search.toLowerCase()) ||
+      test.description?.toLowerCase().includes(communityFilters.search.toLowerCase());
+    const matchCat = communityFilters.category === 'all' || test.category === communityFilters.category;
+    const matchLang = communityFilters.language === 'all' || test.language === communityFilters.language;
+    return matchSearch && matchCat && matchLang;
+  });
+
+
+  useEffect(() => {
+    fetchApprovedTests();
+    if (user) {
+      fetchTestHistory();
+    }
+  }, [user]);
+
+  const fetchTestHistory = async () => {
+    try {
+      const res = await api.get('/history');
+      setTestHistory(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch test history', err);
+    }
+  };
+
+  const completedScenarioIds = new Set();
+  testHistory.forEach(h => {
+    if (h.details) {
+      h.details.forEach(d => {
+        if (d.scenarioId) completedScenarioIds.add(d.scenarioId);
+      });
+    }
+  });
 
   useEffect(() => {
     if (gameState === 'hub') {
@@ -387,6 +396,9 @@ const LifeScenario = () => {
 
   const handleChoice = useCallback((choice) => {
     setSelectedChoice(choice);
+    // isCorrect can be boolean (single) or number 0-1 (multiple)
+    const score = typeof choice.isCorrect === 'number' ? choice.isCorrect : (choice.isCorrect ? 1 : 0);
+    
     setResults((prev) => [
       ...prev,
       {
@@ -394,7 +406,8 @@ const LifeScenario = () => {
         scenarioTitle: currentScenario.title,
         choiceId: choice.id || choice._id,
         choiceText: choice.text,
-        isCorrect: choice.isCorrect,
+        isCorrect: score, // Store as number 0-1
+        selectionType: currentScenario.selectionType || 'single',
       },
     ]);
     setGameState('feedback');
@@ -414,14 +427,32 @@ const LifeScenario = () => {
       // Save to history if user is logged in
       if (user) {
         try {
-          const correctCount = results.filter(r => r.isCorrect).length;
-          const scorePercentage = Math.round((correctCount / totalCount) * 100);
+          const allowedHistoryTypes = new Set(['phishing', 'standard', 'social', 'device', 'mixed', 'ai', 'learning', 'specific']);
+          const normalizeHistoryType = (candidate, fallback = 'mixed') => (
+            candidate && allowedHistoryTypes.has(candidate) ? candidate : fallback
+          );
+
+          const historyType = (() => {
+            if (testMode === 'random') {
+              return normalizeHistoryType(selectedTestType, 'mixed');
+            }
+            if (testMode === 'specific') {
+              return normalizeHistoryType(runPipeline[0]?.testType, 'specific');
+            }
+            return normalizeHistoryType(testMode, 'mixed');
+          })();
+
+          // sum of all scores (each question is 0 to 1)
+          const totalPoints = results.reduce((acc, r) => acc + (typeof r.isCorrect === 'number' ? r.isCorrect : (r.isCorrect ? 1 : 0)), 0);
+          const scorePercentage = Math.round((totalPoints / totalCount) * 100);
           
           await api.post('/history', {
-            testType: testMode || 'mixed',
+            testType: historyType,
             score: scorePercentage,
             totalQuestions: totalCount,
-            correctAnswers: correctCount
+            correctAnswers: Math.round(totalPoints),
+            timeSpent: elapsedSeconds,
+            details: results
           });
           console.log('Test history saved');
         } catch (err) {
@@ -429,7 +460,7 @@ const LifeScenario = () => {
         }
       }
     }
-  }, [currentIndex, fetchNextScenario, runPipeline, testMode, user, results]);
+  }, [currentIndex, fetchNextScenario, runPipeline, selectedTestType, testMode, user, results, elapsedSeconds]);
 
   const restartGame = useCallback(() => {
     localStorage.removeItem(SIMULATION_SESSION_KEY);
@@ -544,8 +575,17 @@ const LifeScenario = () => {
       };
 
       const result = await api.post('/scenarios/submit-batch', payload);
-      const created = result?.meta?.created || payload.questions.length;
-      pushNotification('success', `${t('simulation.testSubmitted') || 'Test submitted for moderation'} (${created})`);
+      const inserted = result.data || [];
+      const rejected = inserted.find(s => s.status === 'rejected');
+
+      if (rejected) {
+        pushNotification('error', `${t('admin.rejected', 'Rejected')}: ${rejected.aiFeedback}`);
+        setGameState('creating');
+        return;
+      }
+
+      const created = result?.meta?.created || inserted.length;
+      pushNotification('success', `${t('simulation.testPublished') || 'Test published!'} (${created})`);
       setCreateForm({
         testType: 'mixed',
         questions: [createBlankQuestion()],
@@ -553,7 +593,7 @@ const LifeScenario = () => {
       setGameState('hub');
     } catch (err) {
       console.error(err);
-      pushNotification('error', t('simulation.submitFailed') || 'Failed to submit test');
+      pushNotification('error', err.response?.data?.message || t('simulation.submitFailed') || 'Failed to submit test');
       setGameState('creating');
     }
   };
@@ -562,7 +602,6 @@ const LifeScenario = () => {
   if (gameState === 'hub') {
     return (
       <>
-      {notificationStack}
       <motion.div 
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
         className="max-w-5xl mx-auto space-y-8"
@@ -580,7 +619,7 @@ const LifeScenario = () => {
             </p>
 
             <div className="mb-8">
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-3">Test Type</p>
+              <p className="text-xs uppercase tracking-wide text-gray-400 mb-3">{t('simulation.testTypeLabel')}</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {TEST_TYPES.map((type) => (
                   <button
@@ -589,7 +628,7 @@ const LifeScenario = () => {
                     onClick={() => setSelectedTestType(type.value)}
                     className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${selectedTestType === type.value ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
                   >
-                    {type.label}
+                    {getTypeLabel(type.value)}
                   </button>
                 ))}
               </div>
@@ -606,11 +645,7 @@ const LifeScenario = () => {
                   {t('simulation.randomTest')}
                 </Button>
               </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="ghost" size="lg" onClick={() => startTest('learning')} icon={BrainCircuit} className="shadow-sm bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-                  {t('simulation.learningMode') || 'Learning Mode'}
-                </Button>
-              </motion.div>
+
               {user && (
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button variant="outline" size="lg" onClick={() => { setGameState('creating'); setActiveQuestionIndex(0); }} icon={Plus} className="border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-600">
@@ -622,67 +657,103 @@ const LifeScenario = () => {
             </div>
           </div>
 
-          <AnimatePresence>
-            {isLearningOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 12, height: 0 }}
-                animate={{ opacity: 1, y: 0, height: 'auto' }}
-                exit={{ opacity: 0, y: -8, height: 0 }}
-                transition={{ duration: 0.25 }}
-                className="relative z-10 mt-6 bg-white/80 rounded-3xl border border-blue-100 p-6 text-left"
-              >
-                <h3 className="text-xl font-bold text-[#1a1a1a] mb-1">{t('simulation.learningTracksTitle', 'Learning Tracks')}</h3>
-                <p className="text-sm text-gray-600 mb-4">{t('simulation.learningTracksSubtitle', 'Pick a topic and run a focused short practice session.')}</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {LEARNING_TRACKS.map((track) => (
-                    <button
-                      key={track.type}
-                      type="button"
-                      className="p-4 rounded-2xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
-                      onClick={() => {
-                        setSelectedTestType(track.type);
-                        startTest('learning', null, track.type);
-                      }}
-                    >
-                      <div className="text-2xl mb-2">{track.icon}</div>
-                      <div className="font-semibold text-[#1a1a1a] mb-1">{getTypeLabel(track.type)}</div>
-                      <div className="text-xs text-blue-700 font-medium">{t('simulation.startTrack', 'Start Track')}</div>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1a1a] mb-6 flex items-center"><Target className="w-6 h-6 mr-2 text-blue-500" /> {t('simulation.communityScenarios')}</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <h2 className="text-2xl font-bold text-[#1a1a1a] flex items-center shrink-0">
+              <Target className="w-6 h-6 mr-2 text-blue-500" /> {t('simulation.communityScenarios')}
+            </h2>
+            
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                <input 
+                  type="text"
+                  placeholder={t('admin.searchPlaceholder', 'Search...')}
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm shadow-sm"
+                  value={communityFilters.search}
+                  onChange={(e) => setCommunityFilters({...communityFilters, search: e.target.value})}
+                />
+              </div>
+              <select 
+                className="py-3 px-4 rounded-2xl bg-white border border-gray-100 text-xs font-bold text-gray-600 outline-none cursor-pointer focus:ring-4 focus:ring-blue-500/5"
+                value={communityFilters.category}
+                onChange={(e) => setCommunityFilters({...communityFilters, category: e.target.value})}
+              >
+                <option value="all">{t('admin.allCategories', 'All Categories')}</option>
+                <option value="phishing">{t('simulation.type.phishing')}</option>
+                <option value="social">{t('simulation.type.social')}</option>
+                <option value="standard">{t('simulation.type.standard')}</option>
+                <option value="device">{t('simulation.type.device')}</option>
+                <option value="network">{t('simulation.type.network') || 'Network'}</option>
+              </select>
+              <select 
+                className="py-3 px-4 rounded-2xl bg-white border border-gray-100 text-xs font-bold text-gray-600 outline-none cursor-pointer focus:ring-4 focus:ring-blue-500/5"
+                value={communityFilters.language}
+                onChange={(e) => setCommunityFilters({...communityFilters, language: e.target.value})}
+              >
+                <option value="all">{t('admin.allLangs', 'All')}</option>
+                <option value="ru">{t('common.langCode.ru')}</option>
+                <option value="kz">{t('common.langCode.kz')}</option>
+                <option value="en">{t('common.langCode.en')}</option>
+              </select>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {groupedTests.length === 0 ? (
+            {filteredCommunityScenarios.length === 0 ? (
               <p className="text-gray-400 col-span-3 text-center py-10 bg-gray-50 rounded-3xl border border-gray-100">{t('simulation.noCommunityScenarios')}</p>
             ) : (
-              groupedTests.map((test, i) => (
-                <motion.div key={test._id || i} whileHover={{ y: -5 }}>
-                  <Card padding="p-6" className="h-full flex flex-col hover:shadow-lg transition-shadow bg-white rounded-[2rem] border border-gray-100 cursor-pointer" onClick={() => startTest('specific', test.allTests)}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex justify-center items-center text-xl">{test.icon || '🛡️'}</div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge variant="primary">{test.category || 'General'}</Badge>
-                        {test.isBatch && (
-                          <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
-                            {test.count} Questions
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <h3 className="font-bold text-lg text-[#1a1a1a] mb-2">{test.title}</h3>
-                    <p className="text-gray-500 text-sm flex-1 line-clamp-3 mb-6">{test.description}</p>
-                    <Button variant="ghost" className="w-full justify-center text-blue-600 hover:bg-blue-50 rounded-xl" icon={Play}>{t('simulation.playTest')}</Button>
-                  </Card>
-                </motion.div>
-              ))
+              <>
+                {filteredCommunityScenarios
+                  .slice((communityPage - 1) * 6, communityPage * 6)
+                  .map((test, i) => (
+                    <motion.div key={test._id || i} whileHover={{ y: -5 }}>
+                      <Card padding="p-6" className="h-full flex flex-col hover:shadow-lg transition-shadow bg-white rounded-[2rem] border border-gray-100 cursor-pointer" onClick={() => startTest('specific', test.allTests)}>
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex justify-center items-center text-xl">{test.icon || '🛡️'}</div>
+                          <div className="flex flex-col items-end gap-1">
+                            {test.isBatch ? (
+                               test.allTests.some(t => completedScenarioIds.has(t._id)) && (
+                                 <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                   <CheckCircle className="w-3 h-3" />
+                                   {t('common.passed', 'Passed')}
+                                 </span>
+                               )
+                            ) : (
+                               completedScenarioIds.has(test._id) && (
+                                 <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                   <CheckCircle className="w-3 h-3" />
+                                   {t('common.passed', 'Passed')}
+                                 </span>
+                               )
+                            )}
+                            <Badge variant="primary">{test.category || 'General'}</Badge>
+                            {test.isBatch && (
+                              <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                                {test.count} Questions
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <h3 className="font-bold text-lg text-[#1a1a1a] mb-2">{test.title}</h3>
+                        <p className="text-gray-500 text-sm flex-1 line-clamp-3 mb-6">{test.description}</p>
+                        <Button variant="ghost" className="w-full justify-center text-blue-600 hover:bg-blue-50 rounded-xl" icon={Play}>{t('simulation.playTest')}</Button>
+                      </Card>
+                    </motion.div>
+                  ))}
+                <div className="col-span-full">
+                  <Pagination 
+                    currentPage={communityPage} 
+                    totalPages={Math.ceil(filteredCommunityScenarios.length / 6)} 
+                    onPageChange={setCommunityPage} 
+                    className="mt-8"
+                  />
+                </div>
+              </>
             )}
-
           </div>
         </div>
       </motion.div>
@@ -694,7 +765,6 @@ const LifeScenario = () => {
   if (gameState === 'creating') {
     return (
       <>
-      {notificationStack}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto p-8 bg-white rounded-[3rem] border border-gray-200 shadow-sm">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-[#1a1a1a]">{t('simulation.createScenario')}</h2>
@@ -763,17 +833,45 @@ const LifeScenario = () => {
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">{t('simulation.titleLabel', 'Title')}</label>
-                  <input
-                    required
-                    type="text"
-                    className="w-full p-4 rounded-2xl bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
-                    value={createForm.questions[activeQuestionIndex].title}
-                    onChange={(e) => updateQuestion(activeQuestionIndex, 'title', e.target.value)}
-                    placeholder={t('simulation.titlePlaceholder')}
-                  />
-                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">{t('simulation.titleLabel', 'Scenario Title')}</label>
+                    <input
+                      required
+                      className="w-full p-4 rounded-2xl bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                      value={createForm.questions[activeQuestionIndex].title}
+                      onChange={(e) => updateQuestion(activeQuestionIndex, 'title', e.target.value)}
+                      placeholder={t('simulation.titlePlaceholder')}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">{t('simulation.selectionTypeLabel', 'Question Type')}</label>
+                    <div className="flex bg-gray-100/80 p-1 rounded-2xl border border-gray-200 shadow-inner h-[58px]">
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(activeQuestionIndex, 'selectionType', 'single')}
+                        className={`flex-1 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          createForm.questions[activeQuestionIndex].selectionType === 'single'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('simulation.singleChoice', 'Single Choice')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(activeQuestionIndex, 'selectionType', 'multiple')}
+                        className={`flex-1 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          createForm.questions[activeQuestionIndex].selectionType === 'multiple'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('simulation.multipleChoice', 'Multiple Choice')}
+                      </button>
+                    </div>
+                  </div>
+                </div>             
 
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">{t('simulation.descriptionLabel', 'Scenario Description')}</label>
@@ -937,17 +1035,31 @@ const LifeScenario = () => {
 
         {/* Score card */}
         <Card className="mb-6" glow>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Trophy className="w-6 h-6 text-yellow-500" />
-              <span className="text-lg font-bold text-[#1a1a1a]">{t('simulation.score')}</span>
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100">
+              <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase mb-1">
+                <Trophy className="w-3 h-3 text-yellow-500" /> {t('simulation.score')}
+              </div>
+              <div className="text-2xl font-mono font-bold text-[#1a1a1a]">{scorePercentage}%</div>
             </div>
-            <span className="text-3xl font-mono font-bold text-[#1a1a1a]">{scorePercentage}%</span>
+            <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100">
+              <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase mb-1">
+                <Clock className="w-3 h-3 text-blue-500" /> {t('simulation.timeSpent', 'Time Spent')}
+              </div>
+              <div className="text-2xl font-mono font-bold text-[#1a1a1a]">{formatElapsedTime(elapsedSeconds)}</div>
+            </div>
           </div>
-          <ProgressBar value={correctCount} max={totalCount} showPercentage={false} />
-          <p className="text-sm text-gray-600 mt-3">
-            {t('simulation.correctOut', { correct: correctCount, total: totalCount, defaultValue: `${correctCount} correct out of ${totalCount} scenarios` })}
-          </p>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-bold text-gray-400 uppercase">
+              <span>{t('simulation.accuracy', 'Accuracy')}</span>
+              <span>{correctCount} / {totalCount}</span>
+            </div>
+            <ProgressBar value={correctCount} max={totalCount} showPercentage={false} />
+            <p className="text-[11px] text-gray-500 text-center mt-2 italic">
+              {t('simulation.avgTimePerQuestion', 'Average time per question')}: {Math.round(elapsedSeconds / totalCount)} {t('simulation.seconds', 's')}
+            </p>
+          </div>
         </Card>
 
         {/* Results breakdown */}
@@ -957,21 +1069,32 @@ const LifeScenario = () => {
             <div
               key={index}
               className={`flex items-center gap-3 p-3 rounded-xl border ${
-                result.isCorrect
+                result.isCorrect >= 0.8
                   ? 'border-emerald-500/20 bg-emerald-500/5'
-                  : 'border-red-500/20 bg-red-500/5'
+                  : result.isCorrect >= 0.5
+                    ? 'border-yellow-500/30 bg-yellow-500/10'
+                    : 'border-red-500/20 bg-red-500/5'
               }`}
             >
-              {result.isCorrect ? (
+              {result.isCorrect >= 0.8 ? (
                 <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              ) : result.isCorrect >= 0.5 ? (
+                <CheckCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
               ) : (
                 <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-[#1a1a1a] truncate">{result.scenarioTitle}</p>
+                <div className="flex gap-1 mt-1">
+                  <span className="text-[10px] text-gray-400 uppercase font-bold">
+                    {result.selectionType === 'multiple' ? t('simulation.multipleChoice') : t('simulation.singleChoice')}
+                  </span>
+                </div>
               </div>
-              <Badge variant={result.isCorrect ? 'low' : 'critical'}>
-                {result.isCorrect ? t('simulation.safe', 'Safe') : t('simulation.risky', 'Risky')}
+              <Badge variant={result.isCorrect >= 0.8 ? 'low' : result.isCorrect >= 0.5 ? 'medium' : 'critical'}>
+                {result.isCorrect >= 1 ? t('simulation.safe', 'Safe') : 
+                 result.isCorrect > 0 ? `${Math.round(result.isCorrect * 100)}%` : 
+                 t('simulation.risky', 'Risky')}
               </Badge>
             </div>
           ))}
@@ -1072,6 +1195,7 @@ const LifeScenario = () => {
                 choice={selectedChoice}
                 onNext={handleNext}
                 isLastScenario={currentIndex === totalCount - 1}
+                scenario={currentScenario}
               />
             )}
           </motion.div>
