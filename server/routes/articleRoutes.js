@@ -26,7 +26,7 @@ router.put('/:id/moderate', protect, admin, remoderateArticle);
 
 router.route('/:id')
   .get(getArticle)
-  .put(protect, admin, updateArticle)
+  .put(protect, updateArticle)
   .delete(protect, admin, deleteArticle);
 
 module.exports = router;

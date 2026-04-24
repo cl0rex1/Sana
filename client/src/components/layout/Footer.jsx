@@ -55,7 +55,7 @@ const Footer = () => {
             </h4>
             <ul className="space-y-2">
               <li>
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer"
+                <a href="https://github.com/cl0rex1/Sana/" target="_blank" rel="noopener noreferrer"
                   className="text-sm text-gray-600 hover:text-[#1a1a1a] transition-colors flex items-center gap-1">
                   <Github className="w-3.5 h-3.5" /> {t('footer.sourceCode')}
                 </a>

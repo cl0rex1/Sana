@@ -84,7 +84,7 @@ const LifeScenario = () => {
   const [communityFilters, setCommunityFilters] = useState({
     search: '',
     category: 'all',
-    language: i18n.language || 'ru'
+    language: 'all'
   });
   const [communityPage, setCommunityPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -217,7 +217,7 @@ const LifeScenario = () => {
 
   const fetchApprovedTests = async () => {
     try {
-      const res = await api.get(`/scenarios/approved?lang=${i18n.language}&type=${selectedTestType}`);
+      const res = await api.get(`/scenarios/approved?type=${selectedTestType}`);
       setApprovedTests(res.data || []);
     } catch (err) {
       console.error('Failed to load approved scenarios', err);
@@ -338,7 +338,7 @@ const LifeScenario = () => {
     }
 
     if ((mode === 'random' || mode === 'learning') && (!targetScenarios || targetScenarios.length === 0)) {
-      let pool = approvedTests;
+      let pool = approvedTests.filter((test) => (test.language || 'en') === i18n.language);
       if (forcedType) {
         const fetched = await api.get(`/scenarios/approved?lang=${i18n.language}&type=${activeType}`);
         pool = fetched?.data || [];

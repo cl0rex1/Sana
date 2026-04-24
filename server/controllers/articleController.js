@@ -70,6 +70,7 @@ Reply ONLY with valid JSON:
           'Content-Type': 'application/json',
           'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
           'X-Title': 'Sana Platform',
+          'ngrok-skip-browser-warning': '1',
         },
       }
     );
@@ -228,8 +229,22 @@ exports.updateArticle = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Article not found' });
     }
 
+    const isAdmin = req.user?.role === 'admin';
+    const isAuthor = article.author?.toString() === req.user?._id?.toString();
+
+    if (!isAdmin && !isAuthor) {
+      return res.status(403).json({ success: false, message: 'Not authorized to edit this article' });
+    }
+
     if (req.body.practiceScenario === '') {
       req.body.practiceScenario = null;
+    }
+
+    if (!isAdmin) {
+      delete req.body.status;
+      delete req.body.moderatedBy;
+      delete req.body.aiFeedback;
+      delete req.body.author;
     }
 
     article = await Article.findByIdAndUpdate(req.params.id, req.body, {

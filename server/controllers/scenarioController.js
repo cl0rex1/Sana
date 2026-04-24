@@ -116,6 +116,7 @@ Choices: ${JSON.stringify(scenarioData.choices, null, 2)}`;
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
+          'ngrok-skip-browser-warning': '1',
         },
         timeout: 15000,
       }

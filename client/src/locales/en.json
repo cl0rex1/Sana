@@ -6,7 +6,8 @@
     "login": "Login",
     "profile": "Profile",
     "language": "Language",
-    "features": "Learn"
+    "features": "Learn",
+    "admin": "Admin"
   },
   "home": {
     "title1": "There is",
@@ -20,6 +21,7 @@
       "title": "How Sana protects you",
       "subtitle": "A comprehensive set of tools that help test, educate and strengthen digital habits against modern social engineering techniques.",
       "item1": {
+        "title": "Phishing recognition training",
         "titleLabel": "Article Title",
         "titlePlaceholder": "e.g., How to recognize WhatsApp fraud",
         "description": "Work with highly realistic copies of popular Kazakhstan banking and service portals to safely check your vigilance."
@@ -380,6 +382,7 @@
     "title": "Platform management",
     "subtitle": "Content management and application moderation.",
     "scenarios": "Scenarios",
+    "scenarioMgmt": "Scenario Management",
     "articles": "Articles",
     "loading": "Loading data...",
     "noScenarios": "No scenarios found in database.",
@@ -434,8 +437,18 @@
     "remoderateSuccess": "Remoderation completed",
     "remoderateError": "Moderation error. Check AI quota.",
     "remoderating": "Checking...",
+    "analyzing": "Analyzing content...",
     "allCategories": "All categories",
+    "allStatus": "All status",
+    "pending": "Pending",
+    "approved": "Approved",
+    "searchPlaceholder": "Search by title or description...",
     "allLangs": "All langs",
+    "humanModerated": "Human Moderated",
+    "aiModerated": "AI Moderated",
+    "fullArticle": "Read Full Article",
+    "successStatusUpdate": "Article status updated!",
+    "errorStatusUpdate": "Failed to update article status.",
     "langShort": "Lang",
     "questions": "Questions",
     "batch": "Batch",
@@ -454,8 +467,8 @@
     },
     "language": {
       "en": "English",
-      "ru": "???????",
-      "kz": "???????"
+      "ru": "Русский",
+      "kz": "Қазақша"
     }
   },
   "notFound": {

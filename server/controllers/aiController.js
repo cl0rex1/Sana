@@ -429,6 +429,7 @@ const callAiApi = async ({
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
         'X-Title': 'Sana Cybersecurity Platform',
+        'ngrok-skip-browser-warning': '1',
       },
       body: JSON.stringify({
         model: model || process.env.OPENROUTER_MODEL || 'inclusionai/ling-2.6-1t:free',

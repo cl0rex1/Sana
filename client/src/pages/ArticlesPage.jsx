@@ -17,12 +17,11 @@ import {
   Filter,
   ArrowRight,
   Plus,
-  Sparkles,
-  Shuffle,
-  BrainCircuit,
   Target,
   Globe,
-  CheckCircle
+  CheckCircle,
+  User,
+  Pencil
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Pagination from '../components/ui/Pagination';
@@ -58,7 +57,7 @@ const ArticlesPage = () => {
   const [communityFilters, setCommunityFilters] = useState({
     search: '',
     category: 'all',
-    language: i18n.language || 'ru'
+    language: 'all'
   });
   
   const PAGE_SIZE = 6;
@@ -85,7 +84,7 @@ const ArticlesPage = () => {
   const fetchArticles = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/articles?lang=${i18n.language}&category=${activeCategory}`);
+      const res = await api.get(`/articles?category=${activeCategory}`);
       setArticles(res.data || []);
     } catch (err) {
       console.error('Failed to fetch articles', err);
@@ -261,14 +260,47 @@ const ArticlesPage = () => {
                           {art.description}
                         </p>
 
+                        <div className="flex items-center gap-2 mb-5">
+                          {art.author?.avatar ? (
+                            <img
+                              src={art.author.avatar}
+                              alt={art.author?.username || 'author'}
+                              className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center">
+                              <User className="w-4 h-4 text-gray-500" />
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-500 font-medium">
+                            {art.author?.username || t('admin.unknownAuthor')}
+                          </span>
+                        </div>
+
                         <div className="flex items-center justify-between mt-auto">
-                          <Link
-                            to={`/learn/${art._id}`}
-                            className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
-                          >
-                            {t('articles.readMore', 'Read more')}
-                            <ArrowRight className="w-4 h-4" />
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            <Link
+                              to={`/learn/${art._id}`}
+                              className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                            >
+                              {t('articles.readMore', 'Read more')}
+                              <ArrowRight className="w-4 h-4" />
+                            </Link>
+                            {user && art.author?._id === user?._id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-3 text-gray-600"
+                                icon={Pencil}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/learn/create?edit=${art._id}`);
+                                }}
+                              >
+                                {t('admin.edit', 'Edit')}
+                              </Button>
+                            )}
+                          </div>
                           
                           {art.practiceScenario && (
                             <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">

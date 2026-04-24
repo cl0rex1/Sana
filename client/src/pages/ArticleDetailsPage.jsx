@@ -6,7 +6,7 @@ import {
   ArrowLeft, 
   Clock, 
   User, 
-  Tag, 
+  Pencil, 
   PlayCircle, 
   ChevronRight,
   Shield,
@@ -19,6 +19,7 @@ import api from '../utils/api';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import GlowEffect from '../components/ui/GlowEffect';
+import { useAuth } from '../context/AuthContext';
 
 const ICON_MAP = {
   Shield: <Shield className="w-6 h-6" />,
@@ -32,6 +33,7 @@ const ArticleDetailsPage = () => {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth() || { user: null };
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -111,13 +113,32 @@ const ArticleDetailsPage = () => {
             </h1>
 
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
-                {article.author?.username?.[0]?.toUpperCase() || 'A'}
-              </div>
+              {article.author?.avatar ? (
+                <img
+                  src={article.author.avatar}
+                  alt={article.author?.username || 'author'}
+                  className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                  {article.author?.username?.[0]?.toUpperCase() || 'A'}
+                </div>
+              )}
               <div>
                 <p className="text-sm font-bold text-[#1a1a1a]">{article.author?.username || 'Admin'}</p>
                 <p className="text-xs text-gray-500">{t('articles.authorLabel', 'Content Expert')}</p>
               </div>
+              {user && article.author?._id === user?._id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto"
+                  icon={Pencil}
+                  onClick={() => navigate(`/learn/create?edit=${article._id}`)}
+                >
+                  {t('admin.edit', 'Edit')}
+                </Button>
+              )}
             </div>
           </header>
 

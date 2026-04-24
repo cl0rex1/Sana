@@ -30,7 +30,7 @@ const Navbar = () => {
   ];
 
   if (user?.role === 'admin') {
-    navLinks.push({ path: '/admin', label: 'Admin' });
+    navLinks.push({ path: '/admin', label: t('nav.admin') });
   }
 
   const isActive = (path) => location.pathname === path;
