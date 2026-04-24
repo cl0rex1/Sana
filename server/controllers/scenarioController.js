@@ -118,7 +118,7 @@ Choices: ${JSON.stringify(scenarioData.choices, null, 2)}`;
           'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
           'ngrok-skip-browser-warning': '1',
         },
-        timeout: 15000,
+        timeout: 60000,
       }
     );
 

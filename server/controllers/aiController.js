@@ -469,7 +469,7 @@ const generateScenarioViaOpenRouterApi = async (targetLang, extraInstructions = 
     model: process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free',
     temperature: 0.2,
     maxTokens: 800,
-    requestTimeoutMs: 45000,
+    requestTimeoutMs: 60000,
   });
 };
 
@@ -480,7 +480,7 @@ const generateScenarioBatchViaOpenRouterApi = async (targetLang, count, extraIns
     model: process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free',
     temperature: 0.35,
     maxTokens: 2600,
-    requestTimeoutMs: 60000,
+    requestTimeoutMs: 120000,
   });
 };
 
@@ -516,7 +516,7 @@ exports.generateScenario = async (req, res) => {
     const scenarioModels = [...new Set([primaryScenarioModel, backupScenarioModel].filter(Boolean))];
 
     if (isDev) {
-      console.log(`[AI] Scenario request started (provider=OpenRouter, lang=${lang}, model=${primaryScenarioModel}, timeout=45000ms)`);
+      console.log(`[AI] Scenario request started (provider=OpenRouter, lang=${lang}, model=${primaryScenarioModel}, timeout=60000ms)`);
     }
     const existingScenarios = await Scenario.find({}, 'title description choices').limit(100);
     const knownFingerprints = new Set(existingScenarios.map(buildScenarioFingerprint).filter(Boolean));
@@ -596,7 +596,7 @@ exports.generateScenarioBatch = async (req, res) => {
     const model = process.env.OPENROUTER_SCENARIO_MODEL || 'inclusionai/ling-2.6-1t:free';
 
     if (isDev) {
-      console.log(`[AI] Scenario batch request started (provider=OpenRouter, lang=${lang}, count=${count}, model=${model}, timeout=60000ms)`);
+      console.log(`[AI] Scenario batch request started (provider=OpenRouter, lang=${lang}, count=${count}, model=${model}, timeout=120000ms)`);
     }
 
     const existingScenarios = await Scenario.find({}, 'title description choices').limit(150);
