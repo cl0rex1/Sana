@@ -484,8 +484,8 @@
   "languageOverlay": {
     "title": {
       "en": "Select Language",
-      "ru": "???????? ????",
-      "kz": "????? ????????"
+      "ru": "Выберите язык",
+      "kz": "Тілді таңдаңыз"
     },
     "englishName": {
       "en": "English",
