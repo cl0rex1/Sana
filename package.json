@@ -1,0 +1,16 @@
+{
+  "name": "sana",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sana cybersecurity awareness platform",
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
+  },
+  "scripts": {
+    "postinstall": "npm install --prefix server --include=dev && npm install --prefix client --include=dev",
+    "build": "npm --prefix client run build",
+    "start": "node server/server.js",
+    "heroku-postbuild": "npm run build"
+  }
+}

@@ -194,6 +194,32 @@ cd server
 npm run seed
 ```
 
+## 🚀 Heroku Deployment
+
+Sana is configured to run as a single Heroku web process that serves the API and the built React client from the same dyno.
+
+### Required config vars
+Set these in the Heroku dashboard or via the CLI:
+
+```env
+NODE_ENV=production
+MONGO_URI=<your_mongodb_connection_string>
+JWT_SECRET=<strong_random_secret>
+CLIENT_URL=https://<your-heroku-app>.herokuapp.com
+OPENROUTER_API_KEY=<optional>
+```
+
+### Deploy flow
+1. Push the repository to Heroku.
+2. Heroku runs `npm install` from the repository root.
+3. The root `postinstall` script installs both workspace dependencies.
+4. `heroku-postbuild` runs the client build and outputs `client/dist`.
+5. The Node server serves the API and the built SPA from the same app.
+
+### Notes
+- Direct navigation to routes like `/dashboard` works because the server falls back to `client/dist/index.html` in production.
+- If you keep a separate frontend domain later, update `CLIENT_URL` accordingly.
+
 ## 🔌 API Endpoints
 
 | Method | Endpoint | Description |

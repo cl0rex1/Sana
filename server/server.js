@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
@@ -21,6 +22,9 @@ const historyRoutes = require('./routes/historyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const clientBuildPath = path.resolve(__dirname, '../client/dist');
+const clientIndexPath = path.join(clientBuildPath, 'index.html');
+const clientBuildExists = fs.existsSync(clientIndexPath);
 
 // --------------- Middleware ---------------
 
@@ -59,6 +63,18 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/scenarios', scenarioRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api/history', historyRoutes);
+
+if (clientBuildExists) {
+  app.use(express.static(clientBuildPath));
+
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api')) {
+      return next();
+    }
+
+    return res.sendFile(clientIndexPath);
+  });
+}
 
 
 // 404 handler for undefined routes
