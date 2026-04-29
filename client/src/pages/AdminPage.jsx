@@ -29,6 +29,8 @@ const AdminPage = () => {
     search: ''
   });
 
+  const getStatusLabel = (status) => t(`admin.${status}`, status || '');
+
   useEffect(() => {
     if (user?.role === 'admin' && activeTab === 'scenarios') {
       fetchScenarios();
@@ -241,7 +243,7 @@ const AdminPage = () => {
                               <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 <Badge variant="outline">{first.category}</Badge>
                                 <Badge variant={first.status === 'approved' ? 'success' : first.status === 'rejected' ? 'danger' : 'warning'}>
-                                  {first.status}
+                                  {getStatusLabel(first.status)}
                                 </Badge>
                                 <Badge variant="ghost">{t('admin.langShort')}: {first.language}</Badge>
                                 {group.isBatch && <Badge variant="info" className="bg-indigo-50 text-indigo-600">{group.items.length} {t('admin.questions')}</Badge>}
@@ -383,6 +385,8 @@ const AdminPage = () => {
         isOpen={confirmModal.isOpen}
         title={t('admin.deleteScenarioTitle')}
         message={t('admin.deleteScenarioMsg')}
+        confirmText={t('admin.delete')}
+        cancelText={t('common.cancel')}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmModal({ isOpen: false, id: null })}
       />

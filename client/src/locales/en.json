@@ -67,6 +67,7 @@
     "testTypeLabel": "Test type",
     "addQuestion": "Add question",
     "questionsCounter": "Questions: {{count}}/20",
+    "questionsCount": "{{count}} Questions",
     "questionsLimitHint": "You can submit up to 20 questions per test.",
     "questionN": "Question {{number}}",
     "removeQuestion": "Remove",
@@ -264,10 +265,16 @@
     "noAccount": "Don't have an account yet?",
     "haveAccount": "Already have an account?",
     "forgotPassword": "Forgot?",
+    "forgotTitle": "Forgot your password?",
+    "forgotSubtitle": "We will send a reset link to your email",
+    "forgotDesc": "Enter the email you used when registering. If it exists, we will send instructions.",
     "email": "Email",
     "password": "Password",
     "username": "Username",
     "submit": "Submit",
+    "sendReset": "Send reset link",
+    "resetSent": "If the email exists, we have sent instructions.",
+    "backToLogin": "Back to login",
     "role": {
       "admin": "Admin",
       "user": "User"
@@ -332,6 +339,7 @@
     "backToList": "Back to list",
     "readyToTest": "Ready to test your knowledge?",
     "practicePrompt": "Launch a simulation based on this article and earn points.",
+    "hasPractice": "Practice available",
     "keyTakeaways": "Main takeaways",
     "authorLabel": "Content expert",
     "art1": {
@@ -458,6 +466,7 @@
   },
   "common": {
     "close": "Close",
+    "cancel": "Cancel",
     "completed": "Completed",
     "passed": "Passed",
     "langCode": {

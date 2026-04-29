@@ -67,6 +67,7 @@
     "testTypeLabel": "Тип теста",
     "addQuestion": "Добавить вопрос",
     "questionsCounter": "Вопросов: {{count}}/20",
+    "questionsCount": "{{count}} вопросов",
     "questionsLimitHint": "Вы можете отправить до 20 вопросов в одном тесте.",
     "questionN": "Вопрос {{number}}",
     "removeQuestion": "Удалить",
@@ -264,10 +265,16 @@
     "noAccount": "Еще нет аккаунта?",
     "haveAccount": "Уже есть аккаунт?",
     "forgotPassword": "Забыли?",
+    "forgotTitle": "Забыли пароль?",
+    "forgotSubtitle": "Мы отправим ссылку для сброса на вашу почту",
+    "forgotDesc": "Введите email, указанный при регистрации. Если аккаунт существует, мы отправим инструкции.",
     "email": "Email",
     "password": "Пароль",
     "username": "Имя пользователя",
     "submit": "Отправить",
+    "sendReset": "Отправить ссылку",
+    "resetSent": "Если email существует, мы отправили инструкции.",
+    "backToLogin": "Вернуться ко входу",
     "role": {
       "admin": "Админ",
       "user": "Пользователь"
@@ -332,6 +339,7 @@
     "backToList": "Вернуться к списку",
     "readyToTest": "Готовы проверить свои знания?",
     "practicePrompt": "Запустите симуляцию на основе этой статьи и заработайте баллы.",
+    "hasPractice": "Практика доступна",
     "keyTakeaways": "Основные выводы",
     "authorLabel": "Эксперт по контенту",
     "art1": {
@@ -458,6 +466,7 @@
   },
   "common": {
     "close": "Закрыть",
+    "cancel": "Отмена",
     "completed": "Завершено",
     "passed": "Пройдено",
     "langCode": {

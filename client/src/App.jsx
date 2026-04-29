@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import ArticlesPage from './pages/ArticlesPage';
 import ArticleDetailsPage from './pages/ArticleDetailsPage';
@@ -39,6 +40,7 @@ const App = () => {
 
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="login" element={<LoginPage />} />
+              <Route path="forgot-password" element={<ForgotPasswordPage />} />
               <Route path="register" element={<RegisterPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="admin" element={<AdminPage />} />

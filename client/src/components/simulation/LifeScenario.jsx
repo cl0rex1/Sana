@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -90,6 +90,8 @@ const LifeScenario = () => {
   const [loading, setLoading] = useState(false);
   const [testHistory, setTestHistory] = useState([]);
   const [scenarioError, setScenarioError] = useState(initialSession?.scenarioError || '');
+  const [sessionId, setSessionId] = useState(initialSession?.sessionId || null);
+  const hasSavedRef = useRef(false);
   
   // Game running state
   const [runPipeline, setRunPipeline] = useState(initialSession?.runPipeline || []);
@@ -138,6 +140,7 @@ const LifeScenario = () => {
       gameState,
       testMode,
       selectedTestType,
+      sessionId,
       currentIndex,
       currentScenario,
       runPipeline,
@@ -149,7 +152,7 @@ const LifeScenario = () => {
     };
 
     localStorage.setItem(SIMULATION_SESSION_KEY, JSON.stringify(sessionPayload));
-  }, [currentIndex, currentScenario, elapsedSeconds, gameState, results, runPipeline, scenarioError, selectedChoice, selectedTestType, testMode, timerStartedAt]);
+  }, [currentIndex, currentScenario, elapsedSeconds, gameState, results, runPipeline, scenarioError, selectedChoice, selectedTestType, testMode, timerStartedAt, sessionId]);
 
 
   const correctCount = results.filter((r) => r.isCorrect).length;
@@ -258,6 +261,7 @@ const LifeScenario = () => {
 
   const startTest = useCallback(async (mode, targetScenarios = null, forcedType = null, scenarioId = null) => {
     const activeType = forcedType || selectedTestType;
+    const nextSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     setTestMode(mode);
     setCurrentIndex(0);
     setResults([]);
@@ -266,6 +270,8 @@ const LifeScenario = () => {
     setTimerStartedAt(Date.now());
     setElapsedSeconds(0);
     setRunPipeline(targetScenarios || []);
+    setSessionId(nextSessionId);
+    hasSavedRef.current = false;
     setGameState('loading');
 
     if (mode === 'specific' && scenarioId) {
@@ -425,7 +431,7 @@ const LifeScenario = () => {
       setGameState('results');
       
       // Save to history if user is logged in
-      if (user) {
+      if (user && !hasSavedRef.current) {
         try {
           const allowedHistoryTypes = new Set(['phishing', 'standard', 'social', 'device', 'mixed', 'ai', 'learning', 'specific']);
           const normalizeHistoryType = (candidate, fallback = 'mixed') => (
@@ -452,8 +458,10 @@ const LifeScenario = () => {
             totalQuestions: totalCount,
             correctAnswers: Math.round(totalPoints),
             timeSpent: elapsedSeconds,
-            details: results
+            details: results,
+            sessionId: sessionId || undefined
           });
+          hasSavedRef.current = true;
           console.log('Test history saved');
         } catch (err) {
           console.error('Failed to save test history:', err);
@@ -474,6 +482,8 @@ const LifeScenario = () => {
     setScenarioError('');
     setTimerStartedAt(null);
     setElapsedSeconds(0);
+    setSessionId(null);
+    hasSavedRef.current = false;
   }, []);
 
   const updateQuestionFeedbackMode = (questionIndex, mode) => {
@@ -733,7 +743,7 @@ const LifeScenario = () => {
                             <Badge variant="primary">{test.category || 'General'}</Badge>
                             {test.isBatch && (
                               <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
-                                {test.count} Questions
+                                {t('simulation.questionsCount', { count: test.count })}
                               </span>
                             )}
                           </div>

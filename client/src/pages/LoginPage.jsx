@@ -84,7 +84,7 @@ const LoginPage = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-sm font-bold text-gray-700">{t('auth.password')}</label>
-                <Link to="#" className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                <Link to="/forgot-password" className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">
                   {t('auth.forgotPassword', 'Forgot?')}
                 </Link>
               </div>

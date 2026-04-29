@@ -28,6 +28,10 @@ const testHistorySchema = new mongoose.Schema(
       type: Number, // in seconds
       default: 0,
     },
+    sessionId: {
+      type: String,
+      index: true,
+    },
     details: [
       {
         scenarioId: String,
@@ -49,5 +53,6 @@ const testHistorySchema = new mongoose.Schema(
 
 // Index for performance
 testHistorySchema.index({ user: 1, completedAt: -1 });
+testHistorySchema.index({ user: 1, sessionId: 1 });
 
 module.exports = mongoose.model('TestHistory', testHistorySchema);

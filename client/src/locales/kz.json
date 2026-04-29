@@ -67,6 +67,7 @@
     "testTypeLabel": "Тест түрі",
     "addQuestion": "Сұрақ қосу",
     "questionsCounter": "Сұрақтар: {{count}}/20",
+    "questionsCount": "{{count}} сұрақ",
     "questionsLimitHint": "Бір тестке 20-ға дейін сұрақ жібере аласыз.",
     "questionN": "{{number}}-сұрақ",
     "removeQuestion": "Өшіру",
@@ -264,10 +265,16 @@
     "noAccount": "Әлі аккаунтыңыз жоқ па?",
     "haveAccount": "Аккаунтыңыз бар ма?",
     "forgotPassword": "Ұмыттыңыз ба?",
+    "forgotTitle": "Құпия сөзді ұмыттыңыз ба?",
+    "forgotSubtitle": "Қалпына келтіру сілтемесін поштаңызға жібереміз",
+    "forgotDesc": "Тіркелген email енгізіңіз. Аккаунт бар болса, нұсқаулық жібереміз.",
     "email": "Электрондық пошта",
     "password": "Құпия сөз",
     "username": "Пайдаланушы аты",
     "submit": "Жіберу",
+    "sendReset": "Сілтемені жіберу",
+    "resetSent": "Email бар болса, нұсқаулық жіберілді.",
+    "backToLogin": "Кіру бетіне оралу",
     "role": {
       "admin": "Админ",
       "user": "Пайдаланушы"
@@ -332,6 +339,7 @@
     "backToList": "Тізімге оралу",
     "readyToTest": "Біліміңізді тексеруге дайынсыз ба?",
     "practicePrompt": "Осы мақала негізінде симуляцияны бастаңыз және ұпай жинаңыз.",
+    "hasPractice": "Тәжірибе қолжетімді",
     "keyTakeaways": "Негізгі тұстар",
     "authorLabel": "Контент сарапшысы",
     "art1": {
@@ -458,6 +466,7 @@
   },
   "common": {
     "close": "Жабу",
+    "cancel": "Бас тарту",
     "completed": "Аяқталды",
     "passed": "Өтті",
     "langCode": {

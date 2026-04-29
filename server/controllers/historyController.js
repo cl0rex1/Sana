@@ -7,7 +7,7 @@ const TestHistory = require('../models/TestHistory');
  */
 const saveTestResult = async (req, res, next) => {
   try {
-    const { testType, score, totalQuestions, correctAnswers, timeSpent, details } = req.body;
+    const { testType, score, totalQuestions, correctAnswers, timeSpent, details, sessionId } = req.body;
 
     if (!testType || score === undefined || !totalQuestions || correctAnswers === undefined) {
       return res.status(400).json({
@@ -16,15 +16,33 @@ const saveTestResult = async (req, res, next) => {
       });
     }
 
-    const result = await TestHistory.create({
-      user: req.user._id,
-      testType,
-      score,
-      totalQuestions,
-      correctAnswers,
-      timeSpent,
-      details
-    });
+    let result = null;
+    if (sessionId) {
+      result = await TestHistory.findOneAndUpdate(
+        { user: req.user._id, sessionId },
+        {
+          user: req.user._id,
+          testType,
+          score,
+          totalQuestions,
+          correctAnswers,
+          timeSpent,
+          details,
+          sessionId,
+        },
+        { new: true, upsert: true }
+      );
+    } else {
+      result = await TestHistory.create({
+        user: req.user._id,
+        testType,
+        score,
+        totalQuestions,
+        correctAnswers,
+        timeSpent,
+        details,
+      });
+    }
 
     res.status(201).json({
       success: true,

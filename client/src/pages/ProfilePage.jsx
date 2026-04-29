@@ -184,6 +184,8 @@ const ProfilePage = () => {
     return map[type] || type;
   };
 
+  const getStatusLabel = (status) => t(`admin.${status}`, status || '');
+
   if (!user) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -349,55 +351,96 @@ const ProfilePage = () => {
             </div>
           ) : myScenarios.length > 0 ? (
             <>
+              {(() => {
+                const groupedScenarios = [];
+                const batches = new Map();
+
+                myScenarios.forEach((scenario) => {
+                  if (scenario.batchId) {
+                    if (!batches.has(scenario.batchId)) {
+                      const group = {
+                        isBatch: true,
+                        id: scenario.batchId,
+                        items: [],
+                      };
+                      batches.set(scenario.batchId, group);
+                      groupedScenarios.push(group);
+                    }
+                    batches.get(scenario.batchId).items.push(scenario);
+                  } else {
+                    groupedScenarios.push({ isBatch: false, id: scenario._id, items: [scenario] });
+                  }
+                });
+
+                const pageItems = groupedScenarios.slice((pageScenarios - 1) * PAGE_SIZE, pageScenarios * PAGE_SIZE);
+
+                return (
+                  <>
               <div className="space-y-4">
-                {myScenarios.slice((pageScenarios - 1) * PAGE_SIZE, pageScenarios * PAGE_SIZE).map((sc) => (
-                  <div 
-                    key={sc._id} 
-                    className="p-5 bg-white border border-gray-100 rounded-2xl hover:border-blue-200 transition-all group cursor-pointer"
-                    onClick={() => navigate(`/simulation?mode=specific&id=${sc._id}`)}
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-xl">
-                          {sc.icon || '🛡️'}
+                {pageItems.map((group) => {
+                  const first = group.items[0];
+                  const scenarioId = group.isBatch ? first._id : first._id;
+                  return (
+                    <div 
+                      key={group.id} 
+                      className="p-5 bg-white border border-gray-100 rounded-2xl hover:border-blue-200 transition-all group cursor-pointer"
+                      onClick={() => navigate(`/simulation?mode=specific&id=${scenarioId}`)}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-xl">
+                            {first.icon || '🛡️'}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-[#1a1a1a]">{first.title}</h4>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{first.category}</span>
+                              {group.isBatch && (
+                                <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                                  {t('simulation.questionsCount', { count: group.items.length })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-bold text-[#1a1a1a]">{sc.title}</h4>
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{sc.category}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={first.status === 'approved' ? 'success' : first.status === 'pending' ? 'warning' : 'critical'}>
+                            {getStatusLabel(first.status)}
+                          </Badge>
+                          {!group.isBatch && (
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              icon={Edit2} 
+                              className="h-8 w-8 p-0 rounded-lg text-gray-400 hover:text-blue-600"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/simulation?edit=${first._id}`); }}
+                            />
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={sc.status === 'approved' ? 'success' : sc.status === 'pending' ? 'warning' : 'critical'}>
-                          {sc.status}
-                        </Badge>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          icon={Edit2} 
-                          className="h-8 w-8 p-0 rounded-lg text-gray-400 hover:text-blue-600"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/simulation?edit=${sc._id}`); }}
-                        />
+                      <p className="text-sm text-gray-500 mb-4 line-clamp-2">{first.description}</p>
+                      <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(first.createdAt).toLocaleDateString()}
+                        </span>
+                        <Button variant="ghost" size="sm" className="text-purple-600 h-8">
+                          {t('simulation.playTest', 'Play')}
+                        </Button>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-500 mb-4 line-clamp-2">{sc.description}</p>
-                    <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(sc.createdAt).toLocaleDateString()}
-                      </span>
-                      <Button variant="ghost" size="sm" className="text-purple-600 h-8">
-                        {t('simulation.playTest', 'Play')}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <Pagination 
                 currentPage={pageScenarios} 
-                totalPages={Math.ceil(myScenarios.length / PAGE_SIZE)} 
+                totalPages={Math.ceil(groupedScenarios.length / PAGE_SIZE)} 
                 onPageChange={setPageScenarios} 
                 className="mt-6"
               />
+                  </>
+                );
+              })()}
             </>
           ) : (
             <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
@@ -447,7 +490,7 @@ const ProfilePage = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={art.status === 'approved' ? 'success' : art.status === 'pending' ? 'warning' : 'critical'}>
-                          {art.status}
+                          {getStatusLabel(art.status)}
                         </Badge>
                         <Button 
                           size="sm" 

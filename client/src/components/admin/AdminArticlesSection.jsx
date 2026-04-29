@@ -26,6 +26,8 @@ const AdminArticlesSection = () => {
     search: ''
   });
 
+  const getStatusLabel = (status) => t(`admin.${status}`, status || '');
+
   useEffect(() => {
 
     fetchData();
@@ -227,7 +229,7 @@ const AdminArticlesSection = () => {
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Badge variant="outline">{art.tag}</Badge>
                   <Badge variant={art.status === 'approved' ? 'success' : art.status === 'rejected' ? 'danger' : 'warning'}>
-                    {art.status}
+                    {getStatusLabel(art.status)}
                   </Badge>
                   <Badge variant="ghost">{art.language?.toUpperCase()}</Badge>
                   {art.practiceScenario && (
@@ -357,6 +359,7 @@ const AdminArticlesSection = () => {
         title={t('admin.deleteArticleTitle')}
         message={t('admin.deleteArticleMsg')}
         confirmText={t('admin.delete')}
+        cancelText={t('common.cancel')}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmModal({ isOpen: false, id: null })}
       />
