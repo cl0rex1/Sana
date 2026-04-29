@@ -197,9 +197,19 @@ const CyberFact = () => {
       aiRequestControllerRef.current = null;
     };
 
+    const abortAiRequestOnHidden = () => {
+      if (document.visibilityState === 'hidden') {
+        abortAiRequest();
+      }
+    };
+
     window.addEventListener('beforeunload', abortAiRequest);
+    window.addEventListener('pagehide', abortAiRequest);
+    document.addEventListener('visibilitychange', abortAiRequestOnHidden);
     return () => {
       window.removeEventListener('beforeunload', abortAiRequest);
+      window.removeEventListener('pagehide', abortAiRequest);
+      document.removeEventListener('visibilitychange', abortAiRequestOnHidden);
       abortAiRequest();
     };
   }, []);
