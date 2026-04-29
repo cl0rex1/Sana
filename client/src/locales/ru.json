@@ -161,6 +161,11 @@
     "multipleChoice": "Множественный выбор",
     "selectMultiple": "Выберите один или несколько вариантов:",
     "submitAnswer": "Подтвердить выбор"
+    ,
+    "exitTest": "Выйти",
+    "exitTitle": "Выйти из теста?",
+    "exitMessage": "Текущий прогресс будет потерян.",
+    "exitConfirm": "Выйти"
   },
   "profile": {
     "stats": "Статистика",

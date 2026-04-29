@@ -161,6 +161,11 @@
     "multipleChoice": "Multiple choice",
     "selectMultiple": "Select one or more options:",
     "submitAnswer": "Confirm choice"
+    ,
+    "exitTest": "Exit",
+    "exitTitle": "Exit test?",
+    "exitMessage": "Your current progress will be lost.",
+    "exitConfirm": "Exit"
   },
   "profile": {
     "stats": "Statistics",

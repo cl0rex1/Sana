@@ -161,6 +161,11 @@
     "multipleChoice": "Бірнеше таңдау",
     "selectMultiple": "Бір немесе бірнеше нұсқаны таңдаңыз:",
     "submitAnswer": "Таңдауды растау"
+    ,
+    "exitTest": "Шығу",
+    "exitTitle": "Тесттен шығу керек пе?",
+    "exitMessage": "Ағымдағы прогресс жоғалады.",
+    "exitConfirm": "Шығу"
   },
   "profile": {
     "stats": "Статистика",

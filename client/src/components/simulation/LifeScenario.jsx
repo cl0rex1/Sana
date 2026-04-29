@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock, Search } from 'lucide-react';
+import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock, Search, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -12,6 +12,7 @@ import Button from '../ui/Button';
 import ProgressBar from '../ui/ProgressBar';
 import Badge from '../ui/Badge';
 import Pagination from '../ui/Pagination';
+import ConfirmModal from '../ui/ConfirmModal';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 
@@ -92,6 +93,7 @@ const LifeScenario = () => {
   const [scenarioError, setScenarioError] = useState(initialSession?.scenarioError || '');
   const [sessionId, setSessionId] = useState(initialSession?.sessionId || null);
   const hasSavedRef = useRef(false);
+  const [exitModalOpen, setExitModalOpen] = useState(false);
   
   // Game running state
   const [runPipeline, setRunPipeline] = useState(initialSession?.runPipeline || []);
@@ -485,6 +487,11 @@ const LifeScenario = () => {
     setSessionId(null);
     hasSavedRef.current = false;
   }, []);
+
+  const handleExit = () => {
+    setExitModalOpen(false);
+    restartGame();
+  };
 
   const updateQuestionFeedbackMode = (questionIndex, mode) => {
     setCreateForm((prev) => {
@@ -1152,9 +1159,20 @@ const LifeScenario = () => {
             label={t('simulation.progress')}
             className="flex-1"
           />
-          <div className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-200 bg-white shadow-sm text-sm font-mono text-gray-700">
-            <Clock className="w-4 h-4 text-blue-500" />
-            <span>{formatElapsedTime(elapsedSeconds)}</span>
+          <div className="shrink-0 flex items-center gap-2">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-200 bg-white shadow-sm text-sm font-mono text-gray-700">
+              <Clock className="w-4 h-4 text-blue-500" />
+              <span>{formatElapsedTime(elapsedSeconds)}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={LogOut}
+              className="h-10 px-3 text-gray-500 hover:text-red-600"
+              onClick={() => setExitModalOpen(true)}
+            >
+              {t('simulation.exitTest')}
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -1243,6 +1261,15 @@ const LifeScenario = () => {
           ))}
         </div>
       )}
+      <ConfirmModal
+        isOpen={exitModalOpen}
+        title={t('simulation.exitTitle')}
+        message={t('simulation.exitMessage')}
+        confirmText={t('simulation.exitConfirm')}
+        cancelText={t('common.cancel')}
+        onConfirm={handleExit}
+        onCancel={() => setExitModalOpen(false)}
+      />
     </div>
   );
 };
