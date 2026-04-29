@@ -128,7 +128,9 @@ Sana/
 │   ├── models/                     # Mongoose schemas
 │   ├── routes/                     # API endpoints
 │   ├── middleware/                 # Error handler
-│   ├── data/seedFacts.js          # Seed data
+│   ├── data/seedFacts.js          # Seed cyber facts
+│   ├── data/seedArticles.js       # Seed starter articles
+│   ├── data/seedDemo.js           # Seed demo data (users, scenarios, stats)
 │   └── server.js                  # Entry point
 │
 ├── .env.example
@@ -194,41 +196,46 @@ cd server
 npm run seed
 ```
 
-## 🚀 Heroku Deployment
-
-Sana is configured to run as a single Heroku web process that serves the API and the built React client from the same dyno.
-
-### Required config vars
-Set these in the Heroku dashboard or via the CLI:
-
-```env
-NODE_ENV=production
-MONGO_URI=<your_mongodb_connection_string>
-JWT_SECRET=<strong_random_secret>
-CLIENT_URL=https://<your-heroku-app>.herokuapp.com
-OPENROUTER_API_KEY=<optional>
+### 6. Seed Demo Data (Recommended for development)
+Populate the database with demo users, scenarios, articles, stats, and history:
+```bash
+cd server
+npm run seed:demo
 ```
 
-### Deploy flow
-1. Push the repository to Heroku.
-2. Heroku runs `npm install` from the repository root.
-3. The root `postinstall` script installs both workspace dependencies.
-4. `heroku-postbuild` runs the client build and outputs `client/dist`.
-5. The Node server serves the API and the built SPA from the same app.
+Reset and reseed everything:
+```bash
+cd server
+npm run seed:reset
+```
 
-### Notes
-- Direct navigation to routes like `/dashboard` works because the server falls back to `client/dist/index.html` in production.
-- If you keep a separate frontend domain later, update `CLIENT_URL` accordingly.
+Demo accounts (created by the seed script):
+- admin@sana.kz / Admin123!
+- demo@sana.kz / User123!
+- teacher@sana.kz / User123!
 
 ## 🔌 API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/health` | Health check |
+| `POST` | `/api/auth/register` | Register user |
+| `POST` | `/api/auth/login` | Login user |
+| `GET` | `/api/auth/me` | Current user (auth) |
+| `PUT` | `/api/auth/profile` | Update profile (auth) |
 | `GET` | `/api/facts/random` | Get a random cyber fact |
 | `GET` | `/api/facts` | Get all facts (paginated) |
-| `POST` | `/api/quiz/results` | Save simulation result |
-| `GET` | `/api/quiz/results` | Get results with filters |
+| `GET` | `/api/scenarios/approved` | Approved scenarios (public) |
+| `POST` | `/api/scenarios/submit` | Submit scenario (auth) |
+| `POST` | `/api/scenarios/submit-batch` | Batch submit (auth) |
+| `GET` | `/api/articles` | Articles list |
+| `GET` | `/api/articles/:id` | Article detail |
+| `POST` | `/api/articles/:id/read` | Mark as read (auth) |
+| `GET` | `/api/history` | User test history (auth) |
+| `POST` | `/api/history` | Save test history (auth) |
+| `DELETE` | `/api/history/:id` | Delete history item (auth) |
+| `GET` | `/api/quiz/results` | Get quiz results |
+| `POST` | `/api/quiz/results` | Save quiz result |
 | `GET` | `/api/quiz/stats` | Aggregated quiz statistics |
 | `GET` | `/api/stats` | Get incident stats (date filter) |
 | `GET` | `/api/stats/summary` | Aggregated summary |
