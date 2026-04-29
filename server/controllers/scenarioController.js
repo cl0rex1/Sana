@@ -199,7 +199,8 @@ exports.submitScenarioBatch = async (req, res) => {
 
     const normalizedType = normalizeTestType(testType);
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    // Prepare all moderation calls in parallel
+    // Prepare all moderation calls in parallel. Local validation failures are
+    // treated as moderation rejections, not server errors.
     const moderationPromises = questions.map(question => {
       const questionPayload = {
         title: question?.title,
@@ -210,7 +211,10 @@ exports.submitScenarioBatch = async (req, res) => {
       
       const validation = validateScenarioDraft(questionPayload);
       if (!validation.valid) {
-        throw new Error(validation.reason);
+        return Promise.resolve({
+          status: 'rejected',
+          feedback: `Local validation failed: ${validation.reason}`,
+        });
       }
       
       return moderateScenarioWithAI(questionPayload);
@@ -251,7 +255,15 @@ exports.submitScenarioBatch = async (req, res) => {
     });
   } catch (error) {
     console.error('Submit scenario batch error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors || {}).map((item) => item.message).filter(Boolean);
+      return res.status(400).json({
+        success: false,
+        message: messages[0] || error.message || 'Validation error',
+      });
+    }
+
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 

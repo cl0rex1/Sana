@@ -4,6 +4,7 @@ import { CheckCircle } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import ConfirmModal from '../ui/ConfirmModal';
 
 /**
  * Individual scenario card displayed during the simulation.
@@ -12,6 +13,7 @@ import Button from '../ui/Button';
 const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => {
   const { t } = useTranslation();
   const [selectedIds, setSelectedIds] = React.useState([]);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   const isMultiple = scenario.selectionType === 'multiple';
 
@@ -19,6 +21,7 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
   const shuffledChoices = React.useMemo(() => {
     if (!scenario?.choices) return [];
     setSelectedIds([]); // Reset selection when scenario changes
+    setConfirmOpen(false);
     return [...scenario.choices].sort(() => Math.random() - 0.5);
   }, [scenario]);
 
@@ -36,7 +39,7 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
     }
   };
 
-  const handleSubmitMultiple = () => {
+  const submitMultiple = () => {
     if (selectedIds.length === 0) return;
 
     // Calculate score: (matches) / total choices
@@ -63,6 +66,15 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
       isCorrect: score, // Store as number 0-1
       isPerfect: isSelectionCorrect,
     });
+  };
+
+  const handleSubmitMultiple = () => {
+    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 1) {
+      setConfirmOpen(true);
+      return;
+    }
+    submitMultiple();
   };
 
   return (
@@ -147,6 +159,18 @@ const ScenarioCard = ({ scenario, currentIndex, total, onChoose, disabled }) => 
           </Button>
         )}
       </div>
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title={t('simulation.multiChoiceConfirmTitle')}
+        message={t('simulation.multiChoiceConfirmMessage')}
+        confirmText={t('simulation.multiChoiceConfirmAction')}
+        cancelText={t('common.cancel')}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          submitMultiple();
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 };

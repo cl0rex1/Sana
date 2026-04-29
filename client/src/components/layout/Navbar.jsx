@@ -35,9 +35,7 @@ const Navbar = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  const handleLangChange = (e) => {
-    i18n.changeLanguage(e.target.value);
-  };
+  const activeLanguage = i18n.language?.split('-')?.[0] || 'en';
 
   return (
     <nav className={`fixed top-4 md:top-6 left-0 right-0 z-50 w-full transition-all duration-500 px-4`}>
@@ -81,7 +79,7 @@ const Navbar = () => {
               onClick={() => setIsLangOpen(true)}
             >
               <Globe className="w-4 h-4" />
-              {i18n.language.toUpperCase()}
+              {activeLanguage.toUpperCase()}
             </button>
 
             {user ? (
@@ -134,7 +132,7 @@ const Navbar = () => {
               onClick={() => { setIsOpen(false); setIsLangOpen(true); }}
             >
               <span>{t('nav.language') || 'Language'}</span>
-              <span className="font-bold">{i18n.language.toUpperCase()}</span>
+              <span className="font-bold">{activeLanguage.toUpperCase()}</span>
             </button>
             
             {user ? (

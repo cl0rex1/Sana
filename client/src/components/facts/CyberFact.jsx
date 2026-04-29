@@ -5,15 +5,31 @@ import api from '../../utils/api';
 import Badge from '../ui/Badge';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 
+const createAiRequestId = () => `ai_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+const cancelAiProviderRequest = (requestId) => {
+  if (!requestId || typeof window === 'undefined') return;
+
+  const url = `/api/ai/cancel/${encodeURIComponent(requestId)}`;
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(url);
+    return;
+  }
+
+  fetch(url, {
+    method: 'POST',
+    keepalive: true,
+  }).catch(() => {});
+};
+
 /**
  * CyberFact — Subway Train Animation Component
  *
  * Phases:
- *   wall     → moving columns of mock facts (alternating scroll directions)
+ *   wall     → moving columns of mock facts before the block enters view
  *   rush     → wall transforms into a full-block metro train rushing past
- *   revealed → train passed, generate UI is visible behind it
- *   loading  → fetching AI fact
- *   fact     → displaying the AI-generated fact
+ *   loading  → fetching the fact
+ *   fact     → displaying the generated or fallback fact as soon as it is ready
  */
 
 // ─── Mock Data ────────────────────────────────────────────────────────
@@ -170,12 +186,49 @@ const CyberFact = () => {
   const [bgState, setBgState] = useState('idle'); // idle | loading | ready
   const [hasTriggered, setHasTriggered] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  const aiRequestControllerRef = useRef(null);
+  const aiRequestIdRef = useRef(null);
+
+  useEffect(() => {
+    const abortAiRequest = () => {
+      cancelAiProviderRequest(aiRequestIdRef.current);
+      aiRequestIdRef.current = null;
+      aiRequestControllerRef.current?.abort();
+      aiRequestControllerRef.current = null;
+    };
+
+    window.addEventListener('beforeunload', abortAiRequest);
+    return () => {
+      window.removeEventListener('beforeunload', abortAiRequest);
+      abortAiRequest();
+    };
+  }, []);
 
   const fetchBestFact = useCallback(async ({ skipAi = false } = {}) => {
     // 1) Try AI endpoint first unless explicitly skipped
     if (!skipAi) {
       try {
-        const aiData = await api.get(`/ai/fact?lang=${i18n.language}`);
+        cancelAiProviderRequest(aiRequestIdRef.current);
+        aiRequestControllerRef.current?.abort();
+        const controller = new AbortController();
+        const requestId = createAiRequestId();
+        aiRequestControllerRef.current = controller;
+        aiRequestIdRef.current = requestId;
+
+        const aiData = await api.get(`/ai/fact?lang=${i18n.language}`, {
+          signal: controller.signal,
+          headers: {
+            'X-AI-Request-ID': requestId,
+          },
+        });
+
+        if (aiRequestControllerRef.current === controller) {
+          aiRequestControllerRef.current = null;
+        }
+        if (aiRequestIdRef.current === requestId) {
+          aiRequestIdRef.current = null;
+        }
+
         if (!isServerFallbackFact(aiData)) {
           return normalizeFact(aiData);
         }
@@ -207,19 +260,15 @@ const CyberFact = () => {
     }
   }, [fetchBestFact, wallFacts]);
 
-  // Start rush when the section becomes visible
+  // Start the reveal animation as soon as the section becomes visible.
   useEffect(() => {
     if (isInView && !hasTriggered) {
-      const timer = setTimeout(() => {
-        setHasTriggered(true);
-        setPhase('rush');
-      }, 1000);
-
-      return () => clearTimeout(timer);
+      setHasTriggered(true);
+      setPhase('rush');
     }
   }, [isInView, hasTriggered]);
 
-  // Preload AI fact as soon as rush starts (so it's ready when train finishes)
+  // Fetch the fact immediately; the UI switches to the fact as soon as it arrives.
   useEffect(() => {
     if (isInView && bgState === 'idle') {
       setBgState('loading');
@@ -266,21 +315,24 @@ const CyberFact = () => {
     setPhase('wall');
   }, []);
 
-  // Train finishes → show fact or loading
+  // Train finishes → show the fact if it is ready, otherwise show only the real request loader.
   const handleTrainEnd = useCallback(() => {
-    if (bgState === 'ready' && aiFact) setPhase('fact');
-    else setPhase('loading');
+    if (bgState === 'ready' && aiFact) {
+      setPhase('fact');
+      return;
+    }
+
+    setPhase('loading');
   }, [bgState, aiFact]);
 
-  // If phase is loading and fact becomes ready, show it
+  // If the fact becomes ready, show it immediately, even while the train is still moving.
   useEffect(() => {
-    if (phase === 'loading' && bgState === 'ready' && aiFact) {
+    if (['rush', 'loading'].includes(phase) && bgState === 'ready' && aiFact) {
       setPhase('fact');
     }
   }, [phase, bgState, aiFact]);
 
   const trainFacts = [...wallFacts, ...wallFacts, ...wallFacts];
-
 
   return (
     <div
@@ -294,18 +346,24 @@ const CyberFact = () => {
       {/* LAYER 0 (bottom): Generate / Loading / Fact — visible behind the train */}
       <div className="absolute inset-0 z-0 flex flex-col items-center justify-center">
         <AnimatePresence mode="wait">
-          {/* Loading spinner behind train */}
           {phase === 'rush' && (
-            <motion.div key="rush-bg" className="flex flex-col items-center gap-4"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div
+              key="rush-bg"
+              className="flex flex-col items-center gap-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
               <div className="flex gap-2">
                 {[0, 1, 2].map((i) => (
-                  <motion.div key={i} className="w-3 h-3 bg-[#1a1a1a] rounded-full"
+                  <motion.div
+                    key={i}
+                    className="w-3 h-3 bg-[#1a1a1a] rounded-full"
                     animate={{ y: [0, -12, 0] }}
-                    transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />
+                    transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
+                  />
                 ))}
               </div>
-              <p className="text-sm font-semibold text-[#1a1a1a]">{t('simulation.generatingFact')}</p>
             </motion.div>
           )}
 
@@ -407,61 +465,53 @@ const CyberFact = () => {
          ═══════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {phase === 'rush' && (
-          <>
-            <motion.div
-              key="train-layer"
-              className="absolute z-20"
-              style={{ top: 0, bottom: 0, left: '-10vw', right: '-10vw' }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              {/* Train container — breaks out to full viewport width */}
-              <div className="absolute inset-0 overflow-visible">
-                {/* The train strip — massive cards, starts off-screen right, ends off-screen left */}
-                <motion.div
-                  className="absolute top-0 h-full flex items-stretch gap-8 py-4"
-                  initial={{ left: '110%' }}
-                    animate={{ left: '-25000px' }}
-                    transition={{ duration: 9, ease: [0.08, 0.0, 0.2, 1] }}
-
-                  onAnimationComplete={handleTrainEnd}
-                >
-                  {trainFacts.map((fact, i) => (
-                    <TrainCard key={i} fact={fact} />
-                  ))}
-                </motion.div>
-              </div>
-
-              {/* Speed lines */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-                {[...Array(12)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute h-[1px]"
-                    style={{
-                      top: `${8 + i * 7.5}%`,
-                      width: '150%',
-                      left: '-25%',
-                      background: 'linear-gradient(90deg, transparent 0%, rgba(200,200,200,0.5) 40%, rgba(200,200,200,0.5) 60%, transparent 100%)',
-                    }}
-                    initial={{ x: '100%', opacity: 0 }}
-                    animate={{ x: '-100%', opacity: [0, 0.5, 0.5, 0] }}
-                    transition={{
-                      duration: 0.6,
-                      delay: 0.3 + i * 0.12,
-                      repeat: 6,
-                      repeatDelay: 0.2,
-                      ease: 'linear',
-                    }}
-                  />
+          <motion.div
+            key="train-layer"
+            className="absolute z-20"
+            style={{ top: 0, bottom: 0, left: '-10vw', right: '-10vw' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="absolute inset-0 overflow-visible">
+              <motion.div
+                className="absolute top-0 h-full flex items-stretch gap-8 py-4"
+                initial={{ left: '110%' }}
+                animate={{ left: '-25000px' }}
+                transition={{ duration: 5, ease: [0.08, 0.0, 0.2, 1] }}
+                onAnimationComplete={handleTrainEnd}
+              >
+                {trainFacts.map((fact, i) => (
+                  <TrainCard key={i} fact={fact} />
                 ))}
-              </div>
-            </motion.div>
+              </motion.div>
+            </div>
 
-
-          </>
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+              {[...Array(12)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute h-[1px]"
+                  style={{
+                    top: `${8 + i * 7.5}%`,
+                    width: '150%',
+                    left: '-25%',
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(200,200,200,0.5) 40%, rgba(200,200,200,0.5) 60%, transparent 100%)',
+                  }}
+                  initial={{ x: '100%', opacity: 0 }}
+                  animate={{ x: '-100%', opacity: [0, 0.5, 0.5, 0] }}
+                  transition={{
+                    duration: 0.6,
+                    delay: 0.3 + i * 0.12,
+                    repeat: 6,
+                    repeatDelay: 0.2,
+                    ease: 'linear',
+                  }}
+                />
+              ))}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

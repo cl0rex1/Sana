@@ -25,6 +25,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    if (axios.isCancel(error) || error.code === 'ERR_CANCELED') {
+      return Promise.reject(new Error('canceled'));
+    }
+
     const message =
       error.response?.data?.message ||
       error.message ||

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, BrainCircuit, Plus, Sparkles, Shuffle, Play, Clock, Search, LogOut } from 'lucide-react';
+import { Shield, RotateCcw, Trophy, Target, Zap, CheckCircle, XCircle, AlertTriangle, AlertOctagon, Plus, Sparkles, Shuffle, Play, Clock, Search, LogOut, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -47,6 +47,23 @@ const sampleRandom = (list, count) => {
 
 const SIMULATION_SESSION_KEY = 'sana_simulation_session_v1';
 
+const createAiRequestId = () => `ai_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+const cancelAiProviderRequest = (requestId) => {
+  if (!requestId || typeof window === 'undefined') return;
+
+  const url = `/api/ai/cancel/${encodeURIComponent(requestId)}`;
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(url);
+    return;
+  }
+
+  fetch(url, {
+    method: 'POST',
+    keepalive: true,
+  }).catch(() => {});
+};
+
 const loadSimulationSession = () => {
   if (typeof window === 'undefined') return null;
 
@@ -66,6 +83,11 @@ const formatElapsedTime = (seconds) => {
   const minutes = Math.floor(total / 60);
   const remainingSeconds = total % 60;
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
+const isCanceledRequest = (error) => {
+  const message = (error?.message || '').toLowerCase();
+  return message === 'canceled' || message.includes('abort');
 };
 
 /**
@@ -94,6 +116,12 @@ const LifeScenario = () => {
   const [sessionId, setSessionId] = useState(initialSession?.sessionId || null);
   const hasSavedRef = useRef(false);
   const [exitModalOpen, setExitModalOpen] = useState(false);
+  const [loadingContext, setLoadingContext] = useState('scenario');
+  const [aiDelayNote, setAiDelayNote] = useState(false);
+  const feedbackRef = useRef(null);
+  const aiRequestControllerRef = useRef(null);
+  const aiRequestIdRef = useRef(null);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
   
   // Game running state
   const [runPipeline, setRunPipeline] = useState(initialSession?.runPipeline || []);
@@ -112,6 +140,21 @@ const LifeScenario = () => {
   });
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const { pushNotification } = useNotification();
+
+  useEffect(() => {
+    const abortAiRequest = () => {
+      cancelAiProviderRequest(aiRequestIdRef.current);
+      aiRequestIdRef.current = null;
+      aiRequestControllerRef.current?.abort();
+      aiRequestControllerRef.current = null;
+    };
+
+    window.addEventListener('beforeunload', abortAiRequest);
+    return () => {
+      window.removeEventListener('beforeunload', abortAiRequest);
+      abortAiRequest();
+    };
+  }, []);
 
   useEffect(() => {
     const isLastQuestion = currentIndex === (runPipeline.length > 0 ? runPipeline.length : 5) - 1;
@@ -220,6 +263,38 @@ const LifeScenario = () => {
     }
   }, [gameState, i18n.language, selectedTestType]);
 
+  useEffect(() => {
+    if (gameState !== 'loading' || loadingContext !== 'ai') {
+      setAiDelayNote(false);
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAiDelayNote(true);
+    }, 4500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [gameState, loadingContext]);
+
+  useEffect(() => {
+    if (gameState !== 'feedback' || !feedbackRef.current) return;
+    const timeoutId = window.setTimeout(() => {
+      const feedbackTop = feedbackRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(feedbackTop - 110, 0), behavior: 'smooth' });
+    }, 50);
+    return () => window.clearTimeout(timeoutId);
+  }, [gameState, currentScenario]);
+
+  useEffect(() => {
+    if (gameState !== 'results') return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [gameState]);
+
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [gameState, currentScenario]);
+
   const fetchApprovedTests = async () => {
     try {
       const res = await api.get(`/scenarios/approved?type=${selectedTestType}`);
@@ -231,6 +306,7 @@ const LifeScenario = () => {
 
   /** Start a specific set of tests or dynamic flow */
   const fetchNextScenario = useCallback(async (idx, mode, pipeline, testType = selectedTestType) => {
+    setLoadingContext('scenario');
     setGameState('loading');
     try {
       let scenarioData = null;
@@ -238,7 +314,24 @@ const LifeScenario = () => {
         scenarioData = pipeline[idx];
       } else if (mode === 'ai' || (mode === 'random' && approvedTests.length === 0)) {
         // AI Generation or fallback if DB empty
-        const response = await api.get(`/ai/scenario?lang=${i18n.language}&type=${testType}`);
+        cancelAiProviderRequest(aiRequestIdRef.current);
+        aiRequestControllerRef.current?.abort();
+        const controller = new AbortController();
+        const requestId = createAiRequestId();
+        aiRequestControllerRef.current = controller;
+        aiRequestIdRef.current = requestId;
+        const response = await api.get(`/ai/scenario?lang=${i18n.language}&type=${testType}`, {
+          signal: controller.signal,
+          headers: {
+            'X-AI-Request-ID': requestId,
+          },
+        });
+        if (aiRequestControllerRef.current === controller) {
+          aiRequestControllerRef.current = null;
+        }
+        if (aiRequestIdRef.current === requestId) {
+          aiRequestIdRef.current = null;
+        }
         scenarioData = response?.choices ? response : response?.data;
         if (!scenarioData?.choices) throw new Error("Invalid format");
       } else if (mode === 'random') {
@@ -248,7 +341,12 @@ const LifeScenario = () => {
       
       setCurrentScenario(scenarioData || scenariosFallback[idx % scenariosFallback.length]);
       setGameState('playing');
+      setTimerStartedAt((prev) => prev || Date.now());
     } catch (err) {
+      if (isCanceledRequest(err)) {
+        return;
+      }
+
       console.warn('Scenario load failed:', err);
       if (mode === 'ai' || (mode === 'random' && approvedTests.length === 0)) {
         setScenarioError(t('simulation.aiError'));
@@ -269,12 +367,17 @@ const LifeScenario = () => {
     setResults([]);
     setSelectedChoice(null);
     setScenarioError('');
-    setTimerStartedAt(Date.now());
+    setTimerStartedAt(null);
     setElapsedSeconds(0);
     setRunPipeline(targetScenarios || []);
     setSessionId(nextSessionId);
     hasSavedRef.current = false;
+    setLoadingContext(mode === 'ai' ? 'ai' : 'scenario');
     setGameState('loading');
+
+    if (mode === 'ai') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     if (mode === 'specific' && scenarioId) {
       try {
@@ -327,9 +430,25 @@ const LifeScenario = () => {
 
     if (mode === 'ai') {
       try {
+        cancelAiProviderRequest(aiRequestIdRef.current);
+        aiRequestControllerRef.current?.abort();
+        const controller = new AbortController();
+        const requestId = createAiRequestId();
+        aiRequestControllerRef.current = controller;
+        aiRequestIdRef.current = requestId;
         const batch = await api.get(`/ai/test?lang=${i18n.language}&count=${AI_TEST_COUNT}&type=${activeType}`, {
           timeout: 70000,
+          signal: controller.signal,
+          headers: {
+            'X-AI-Request-ID': requestId,
+          },
         });
+        if (aiRequestControllerRef.current === controller) {
+          aiRequestControllerRef.current = null;
+        }
+        if (aiRequestIdRef.current === requestId) {
+          aiRequestIdRef.current = null;
+        }
         if (!Array.isArray(batch) || batch.length === 0) {
           throw new Error('Invalid AI test batch');
         }
@@ -338,6 +457,10 @@ const LifeScenario = () => {
         await fetchNextScenario(0, 'specific', batch, activeType);
         return;
       } catch (err) {
+        if (isCanceledRequest(err)) {
+          return;
+        }
+
         console.warn('AI test batch load failed:', err);
         setScenarioError(t('simulation.aiError'));
         setGameState('error');
@@ -488,6 +611,33 @@ const LifeScenario = () => {
     hasSavedRef.current = false;
   }, []);
 
+  const retakeCurrentTest = useCallback(async () => {
+    const pipeline = runPipeline.length > 0
+      ? runPipeline
+      : currentScenario
+        ? [currentScenario]
+        : [];
+
+    if (pipeline.length === 0) {
+      restartGame();
+      return;
+    }
+
+    const nextSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.removeItem(SIMULATION_SESSION_KEY);
+    setCurrentIndex(0);
+    setResults([]);
+    setSelectedChoice(null);
+    setScenarioError('');
+    setTimerStartedAt(null);
+    setElapsedSeconds(0);
+    setRunPipeline(pipeline);
+    setSessionId(nextSessionId);
+    hasSavedRef.current = false;
+
+    await fetchNextScenario(0, 'specific', pipeline, pipeline[0]?.testType || selectedTestType);
+  }, [currentScenario, fetchNextScenario, restartGame, runPipeline, selectedTestType]);
+
   const handleExit = () => {
     setExitModalOpen(false);
     restartGame();
@@ -551,6 +701,8 @@ const LifeScenario = () => {
 
   const submitNewTest = async (e) => {
     e.preventDefault();
+    if (createSubmitting) return;
+
     try {
       if (createForm.questions.length > 20) {
         pushNotification('error', t('simulation.questionsTooMany', 'You can submit up to 20 questions in one test.'));
@@ -576,7 +728,7 @@ const LifeScenario = () => {
         return;
       }
 
-      setGameState('loading');
+      setCreateSubmitting(true);
       const payload = {
         testType: createForm.testType,
         language: i18n.language,
@@ -596,8 +748,12 @@ const LifeScenario = () => {
       const rejected = inserted.find(s => s.status === 'rejected');
 
       if (rejected) {
-        pushNotification('error', `${t('admin.rejected', 'Rejected')}: ${rejected.aiFeedback}`);
-        setGameState('creating');
+        const feedback = rejected.aiFeedback || t('simulation.moderationReasonUnavailable', 'No moderation details were provided.');
+        pushNotification(
+          'moderation',
+          `${t('simulation.creationRejected', 'The test was not published because it did not pass moderation.')} ${feedback}`,
+          { duration: 9000 }
+        );
         return;
       }
 
@@ -610,8 +766,9 @@ const LifeScenario = () => {
       setGameState('hub');
     } catch (err) {
       console.error(err);
-      pushNotification('error', err.response?.data?.message || t('simulation.submitFailed') || 'Failed to submit test');
-      setGameState('creating');
+      pushNotification('error', err.message || t('simulation.submitFailed') || 'Failed to submit test');
+    } finally {
+      setCreateSubmitting(false);
     }
   };
 
@@ -992,7 +1149,17 @@ const LifeScenario = () => {
               </div>
             </div>
           </div>
-          <Button variant="primary" size="lg" className="w-full pt-4 mt-6 rounded-[1.5rem] py-4 text-xl shadow-xl shadow-blue-100" type="submit" icon={CheckCircle}>{t('simulation.submitForModeration')}</Button>
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full pt-4 mt-6 rounded-[1.5rem] py-4 text-xl shadow-xl shadow-blue-100"
+            type="submit"
+            icon={CheckCircle}
+            loading={createSubmitting}
+            loadingType="dots"
+          >
+            {t('simulation.submitForModeration')}
+          </Button>
 
         </form>
       </motion.div>
@@ -1007,9 +1174,50 @@ const LifeScenario = () => {
   // ==================== LOADING SCREEN ====================
   if (gameState === 'loading') {
     return (
-      <div className="flex flex-col items-center justify-center h-64 animate-pulse">
-        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-        <p className="text-gray-500 font-medium">{t('simulation.processing')}</p>
+      <div className="flex flex-col items-center justify-center min-h-[18rem] px-4">
+        {loadingContext === 'ai' ? (
+          <motion.div
+            animate={{
+              backgroundColor: aiDelayNote ? '#fff7ed' : '#ffffff',
+              borderColor: aiDelayNote ? '#fed7aa' : '#e5e7eb',
+            }}
+            transition={{ duration: 0.6 }}
+            className="w-full max-w-sm rounded-[2rem] border p-7 text-center shadow-sm"
+          >
+            <div className="flex gap-2 justify-center mb-6">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className={`w-3 h-3 rounded-full animate-bounce ${aiDelayNote ? 'bg-amber-500' : 'bg-[#1a1a1a]'}`}
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">
+              {t('simulation.aiLoadingEyebrow', 'AI test')}
+            </p>
+            <h2 className="text-2xl font-bold text-[#1a1a1a] mb-3">
+              {t('simulation.aiLoadingTitle', 'Preparing AI test')}
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">
+              {t('simulation.aiLoadingSubtitle', 'Generation can take up to a minute while the scenarios are assembled.')}
+            </p>
+            {aiDelayNote && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-amber-200 bg-white/70 px-4 py-3 text-xs font-medium text-amber-800"
+              >
+                {t('simulation.aiDelayNote', 'AI is taking a bit longer. This is normal for complex tests.')}
+              </motion.div>
+            )}
+          </motion.div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 animate-pulse">
+            <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+            <p className="text-gray-500 font-medium">{t('simulation.processing')}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -1118,7 +1326,10 @@ const LifeScenario = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <Button variant="primary" onClick={restartGame} icon={RotateCcw} className="flex-1">
+          <Button variant="primary" onClick={retakeCurrentTest} icon={RotateCcw} className="flex-1">
+            {t('simulation.retakeTest', 'Retake test')}
+          </Button>
+          <Button variant="secondary" onClick={restartGame} icon={Home} className="flex-1">
             {t('simulation.tryAgain')}
           </Button>
         </div>
@@ -1219,12 +1430,14 @@ const LifeScenario = () => {
 
             {/* Feedback overlay (shown after choosing) */}
             {gameState === 'feedback' && (
-              <FeedbackModal
-                choice={selectedChoice}
-                onNext={handleNext}
-                isLastScenario={currentIndex === totalCount - 1}
-                scenario={currentScenario}
-              />
+              <div ref={feedbackRef}>
+                <FeedbackModal
+                  choice={selectedChoice}
+                  onNext={handleNext}
+                  isLastScenario={currentIndex === totalCount - 1}
+                  scenario={currentScenario}
+                />
+              </div>
             )}
           </motion.div>
         )}

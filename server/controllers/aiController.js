@@ -75,6 +75,47 @@ const sanitizeJsonText = (rawText) => {
   return rawText.replace(/^```json\s*|\s*```$/g, '').trim();
 };
 
+const activeAiRequests = new Map();
+
+const createRequestAbort = (req, res) => {
+  const controller = new AbortController();
+  const requestId = req.get('X-AI-Request-ID') || req.query.requestId;
+  const abort = () => {
+    if (!controller.signal.aborted) {
+      controller.abort(new Error('Client disconnected'));
+    }
+  };
+  const abortIfResponseClosedEarly = () => {
+    if (!res.writableEnded) {
+      abort();
+    }
+  };
+
+  if (requestId) {
+    activeAiRequests.set(requestId, controller);
+  }
+
+  req.on('aborted', abort);
+  res.on('close', abortIfResponseClosedEarly);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      req.off('aborted', abort);
+      res.off('close', abortIfResponseClosedEarly);
+      if (requestId && activeAiRequests.get(requestId) === controller) {
+        activeAiRequests.delete(requestId);
+      }
+    },
+  };
+};
+
+const isAbortError = (error) =>
+  error?.name === 'AbortError' ||
+  error?.code === 'ABORT_ERR' ||
+  error?.message === 'Client disconnected' ||
+  error?.cause?.message === 'Client disconnected';
+
 const extractJsonCandidate = (text) => {
   if (!text) return '';
 
@@ -413,12 +454,28 @@ const callAiApi = async ({
   temperature = 0.7,
   maxTokens = 500,
   requestTimeoutMs = 30000,
+  signal,
 }) => {
   const apiKey = process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY;
   const baseUrl = process.env.AI_API_URL || 'https://openrouter.ai/api/v1/chat/completions';
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const abortFromParent = () => {
+    if (!controller.signal.aborted) {
+      controller.abort(signal?.reason || new Error('Client disconnected'));
+    }
+  };
+  const timeoutId = setTimeout(() => {
+    if (!controller.signal.aborted) {
+      controller.abort(new Error('AI request timed out'));
+    }
+  }, requestTimeoutMs);
+
+  if (signal?.aborted) {
+    abortFromParent();
+  } else if (signal) {
+    signal.addEventListener('abort', abortFromParent, { once: true });
+  }
 
   try {
     const response = await fetch(baseUrl, {
@@ -452,17 +509,19 @@ const callAiApi = async ({
     return parseModelJson(rawContent);
   } finally {
     clearTimeout(timeoutId);
+    signal?.removeEventListener?.('abort', abortFromParent);
   }
 };
 
-const generateFactViaOpenRouterApi = async (targetLang) => {
+const generateFactViaOpenRouterApi = async (targetLang, signal) => {
   return callAiApi({
     systemPrompt: SYSTEM_PROMPT_FACT,
     userPrompt: `Generate a cybersecurity fact in ${targetLang}. Focus on real-world data.`,
+    signal,
   });
 };
 
-const generateScenarioViaOpenRouterApi = async (targetLang, extraInstructions = '') => {
+const generateScenarioViaOpenRouterApi = async (targetLang, extraInstructions = '', signal) => {
   return callAiApi({
     systemPrompt: SYSTEM_PROMPT_SCENARIO,
     userPrompt: `Generate a scenario in ${targetLang}. ${extraInstructions}`.trim(),
@@ -470,10 +529,11 @@ const generateScenarioViaOpenRouterApi = async (targetLang, extraInstructions = 
     temperature: 0.2,
     maxTokens: 800,
     requestTimeoutMs: 60000,
+    signal,
   });
 };
 
-const generateScenarioBatchViaOpenRouterApi = async (targetLang, count, extraInstructions = '') => {
+const generateScenarioBatchViaOpenRouterApi = async (targetLang, count, extraInstructions = '', signal) => {
   return callAiApi({
     systemPrompt: SYSTEM_PROMPT_SCENARIO_BATCH,
     userPrompt: `Generate ${count} scenarios in ${targetLang}. ${extraInstructions}`.trim(),
@@ -481,32 +541,43 @@ const generateScenarioBatchViaOpenRouterApi = async (targetLang, count, extraIns
     temperature: 0.35,
     maxTokens: 2600,
     requestTimeoutMs: 120000,
+    signal,
   });
 };
 
 exports.generateFact = async (req, res) => {
+  const requestAbort = createRequestAbort(req, res);
   try {
     const lang = normalizeLang(req.query.lang);
     const targetLang = getTargetLanguage(lang);
     if (isDev) {
       console.log(`[AI] Fact request started (provider=OpenRouter, lang=${lang}, model=${process.env.OPENROUTER_MODEL || 'inclusionai/ling-2.6-1t:free'})`);
     }
-    const factData = await generateFactViaOpenRouterApi(targetLang);
+    const factData = await generateFactViaOpenRouterApi(targetLang, requestAbort.signal);
     const localizedFact = sanitizeFactByLanguageRules(factData, lang);
     if (isDev) {
       console.log('[AI] Fact request succeeded (provider=OpenRouter)');
     }
     res.status(200).json(localizedFact);
   } catch (error) {
+    if (isAbortError(error)) {
+      if (isDev) {
+        console.log('[AI] Fact request aborted because the client disconnected');
+      }
+      return;
+    }
     console.error('AI Fact OpenRouter Error:', error.message);
     if (isDev) {
       console.log('[AI] Fact fallback returned');
     }
     res.status(200).json(getFallbackFact(req.query.lang || 'en'));
+  } finally {
+    requestAbort.cleanup();
   }
 };
 
 exports.generateScenario = async (req, res) => {
+  const requestAbort = createRequestAbort(req, res);
   try {
     const lang = normalizeLang(req.query.lang);
     const testType = normalizeAiTestType(req.query.type);
@@ -537,6 +608,7 @@ exports.generateScenario = async (req, res) => {
             model,
             temperature: 0.2,
             maxTokens: 800,
+            signal: requestAbort.signal,
           });
 
           if (scenarioData?.choices && !isRepeatedScenario(scenarioData, knownFingerprints)) {
@@ -550,6 +622,9 @@ exports.generateScenario = async (req, res) => {
 
           scenarioData = null;
         } catch (attemptError) {
+          if (isAbortError(attemptError)) {
+            throw attemptError;
+          }
           if (isDev) {
             console.warn(`[AI] Scenario parse failed for model ${model}:`, attemptError.message);
           }
@@ -575,6 +650,12 @@ exports.generateScenario = async (req, res) => {
     }
     res.status(200).json(scenarioData);
   } catch (error) {
+    if (isAbortError(error)) {
+      if (isDev) {
+        console.log('[AI] Scenario request aborted because the client disconnected');
+      }
+      return;
+    }
     console.error('AI Scenario OpenRouter Error:', error.message);
     if (isDev) {
       console.log('[AI] Scenario request failed with no fallback');
@@ -583,10 +664,13 @@ exports.generateScenario = async (req, res) => {
       success: false,
       message: 'AI scenario generation is unavailable right now. Please try again later.',
     });
+  } finally {
+    requestAbort.cleanup();
   }
 };
 
 exports.generateScenarioBatch = async (req, res) => {
+  const requestAbort = createRequestAbort(req, res);
   try {
     const lang = normalizeLang(req.query.lang);
     const testType = normalizeAiTestType(req.query.type);
@@ -615,13 +699,16 @@ exports.generateScenarioBatch = async (req, res) => {
         : `The previous answer had duplicates or missing items. Return exactly ${count} unique scenarios only. Each scenario must be distinct from the others and from the existing titles. ${getTypeInstruction(testType)}`;
 
       try {
-        const batch = await generateScenarioBatchViaOpenRouterApi(targetLang, count, extraInstructions);
+        const batch = await generateScenarioBatchViaOpenRouterApi(targetLang, count, extraInstructions, requestAbort.signal);
         scenarios = normalizeScenarioBatch(batch, knownFingerprints, count);
 
         if (scenarios.length === count) {
           break;
         }
       } catch (attemptError) {
+        if (isAbortError(attemptError)) {
+          throw attemptError;
+        }
         if (isDev) {
           console.warn(`[AI] Scenario batch attempt failed: ${attemptError.message}`);
         }
@@ -643,6 +730,12 @@ exports.generateScenarioBatch = async (req, res) => {
 
     res.status(200).json(scenarios);
   } catch (error) {
+    if (isAbortError(error)) {
+      if (isDev) {
+        console.log('[AI] Scenario batch request aborted because the client disconnected');
+      }
+      return;
+    }
     console.error('AI Scenario Batch OpenRouter Error:', error.message);
     if (isDev) {
       console.log('[AI] Scenario batch request failed with no fallback');
@@ -651,5 +744,19 @@ exports.generateScenarioBatch = async (req, res) => {
       success: false,
       message: 'AI test generation is unavailable right now. Please try again later.',
     });
+  } finally {
+    requestAbort.cleanup();
   }
+};
+
+exports.cancelAiRequest = (req, res) => {
+  const requestId = req.params.requestId || req.body?.requestId || req.query.requestId;
+  const controller = requestId ? activeAiRequests.get(requestId) : null;
+
+  if (controller && !controller.signal.aborted) {
+    controller.abort(new Error('Client disconnected'));
+    activeAiRequests.delete(requestId);
+  }
+
+  res.status(204).end();
 };

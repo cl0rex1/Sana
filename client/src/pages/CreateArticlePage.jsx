@@ -159,8 +159,13 @@ const CreateArticlePage = () => {
         ? await api.put(`/articles/${editId}`, payload)
         : await api.post('/articles', payload);
       
-      if (res.data && res.data.status === 'rejected') {
-        pushNotification('error', `${t('admin.rejected', 'Rejected')}: ${res.data.aiFeedback}`);
+      if (res?.status === 'rejected') {
+        const feedback = res.aiFeedback || t('articles.moderationReasonUnavailable', 'No moderation details were provided.');
+        pushNotification(
+          'moderation',
+          `${t('articles.creationRejected', 'The article was not published because it did not pass moderation.')} ${feedback}`,
+          { duration: 9000 }
+        );
         setLoading(false);
         return;
       }
@@ -169,7 +174,7 @@ const CreateArticlePage = () => {
       navigate('/learn');
     } catch (err) {
       console.error(err);
-      pushNotification('error', err.response?.data?.message || t('articles.saveError', 'Failed to save article'));
+      pushNotification('error', err.message || t('articles.saveError', 'Failed to save article'));
     } finally {
       setLoading(false);
     }

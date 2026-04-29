@@ -14,12 +14,13 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
-  const pushNotification = useCallback((type, message) => {
+  const pushNotification = useCallback((type, message, options = {}) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setNotifications((prev) => [...prev, { id, type, message }]);
+    const duration = options.duration || (type === 'moderation' ? 8000 : 3500);
     setTimeout(() => {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 3500);
+    }, duration);
   }, []);
 
   return (
@@ -38,7 +39,9 @@ export const NotificationProvider = ({ children }) => {
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                   : n.type === 'error'
                     ? 'border-red-200 bg-red-50 text-red-800'
-                    : 'border-blue-200 bg-blue-50 text-blue-800'
+                    : n.type === 'moderation'
+                      ? 'border-amber-200 bg-amber-50 text-amber-900'
+                      : 'border-blue-200 bg-blue-50 text-blue-800'
               }`}
             >
               <div className="text-sm font-semibold leading-relaxed">{n.message}</div>

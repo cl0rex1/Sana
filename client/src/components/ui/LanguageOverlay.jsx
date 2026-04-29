@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const languageCards = [
@@ -7,6 +7,12 @@ const languageCards = [
   { code: 'ru', gradient: 'from-red-50 to-orange-100' },
   { code: 'kz', gradient: 'from-cyan-50 to-blue-100' }
 ];
+
+const languageNativeNames = {
+  en: 'English',
+  ru: 'Русский',
+  kz: 'Қазақша',
+};
 
 const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
   const { t, i18n } = useTranslation();
@@ -93,14 +99,14 @@ const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
                     <div className={`absolute inset-0 bg-gradient-to-br ${lang.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
                     <div className="relative z-10 flex flex-col gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold uppercase transition-colors ${
                         isSelected ? 'bg-[#1a1a1a] text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-white border border-transparent group-hover:border-gray-200'
                       }`}>
-                        {isSelected ? <Check className="w-5 h-5" /> : <span className="font-bold text-sm tracking-wider uppercase">{lang.code}</span>}
+                        {lang.code}
                       </div>
                       <div>
-                        <h3 className="text-3xl font-bold text-[#1a1a1a] mb-1">{t(`common.language.${lang.code}`)}</h3>
-                        <p className="text-gray-500 font-medium">{t(`languageOverlay.englishName.${lang.code}`)}</p>
+                        <h3 className="text-3xl font-bold text-[#1a1a1a] mb-1">{languageNativeNames[lang.code]}</h3>
+                        <p className="text-gray-500 font-medium">{t(`common.language.${lang.code}`)}</p>
                       </div>
                     </div>
                   </button>
