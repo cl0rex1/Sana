@@ -58,10 +58,10 @@ const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
       <div className="absolute inset-0 bg-orange-50 transition-all duration-[700ms] ease-in-out delay-[50ms]" style={isOpen ? expandedStyle : closedStyle} />
 
       <div
-        className="absolute inset-0 bg-[#fdfaf5] transition-all duration-[800ms] ease-in-out delay-[100ms] pointer-events-auto flex flex-col"
+        className="absolute inset-0 bg-[#fdfaf5] transition-all duration-[800ms] ease-in-out delay-[100ms] pointer-events-auto flex flex-col overflow-y-auto overscroll-contain touch-pan-y"
         style={isOpen ? expandedStyle : closedStyle}
       >
-        <div className="max-w-[1400px] w-full mx-auto px-4 md:px-8 h-full flex flex-col relative">
+        <div className="max-w-[1400px] w-full mx-auto px-4 md:px-8 min-h-full flex flex-col relative">
           <div className="h-20 flex justify-end items-center relative z-20">
             <button
               onClick={onClose}
@@ -73,7 +73,7 @@ const LanguageOverlay = ({ isOpen, onClose, triggerElement }) => {
             </button>
           </div>
 
-          <div className={`flex-1 flex flex-col justify-center items-center transition-all duration-700 ${isOpen ? 'opacity-100 translate-y-0 delay-[500ms]' : 'opacity-0 translate-y-10'}`}>
+          <div className={`flex-1 flex flex-col justify-start md:justify-center items-center py-6 md:py-0 transition-all duration-700 ${isOpen ? 'opacity-100 translate-y-0 delay-[500ms]' : 'opacity-0 translate-y-10'}`}>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#1a1a1a] mb-12 h-[1.2em] transition-all duration-300">
               {hoveredLang ? t(`languageOverlay.title.${hoveredLang}`) : titleCycle[cycleIndex]}
             </h2>
